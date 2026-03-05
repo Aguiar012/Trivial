@@ -409,12 +409,25 @@ function CartaAtiva({
 }) {
     const ref = useRef<THREE.Group>(null)
     const flip = useRef(0)
+    const velocidadeFlip = useRef(0)
     const posY = useRef(0.08)
 
     useFrame((_, dt) => {
         const tgtFlip = virada ? Math.PI : 0
-        flip.current = THREE.MathUtils.lerp(flip.current, tgtFlip, dt * 6)
+        const diff = tgtFlip - flip.current
+
+        // Spring com overshoot (underdamped)
+        if (Math.abs(diff) > 0.01) {
+            velocidadeFlip.current += diff * 25 * dt  // stiffness
+            velocidadeFlip.current *= 0.85             // damping
+            flip.current += velocidadeFlip.current * dt
+        } else {
+            flip.current = tgtFlip
+            velocidadeFlip.current = 0
+        }
+
         posY.current = THREE.MathUtils.lerp(posY.current, 0.4, dt * 4)
+
         if (ref.current) {
             ref.current.rotation.x = flip.current
             ref.current.position.y = posY.current
