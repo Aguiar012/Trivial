@@ -484,13 +484,15 @@ function CartaAtiva({
             <Text
                 position={[0, 0.012, 0.05]}
                 rotation={[-Math.PI / 2, 0, 0]}
-                fontSize={0.1}
+                fontSize={textoFrente.length > 40 ? 0.07 : 0.1}
                 color={C.tinta}
-                maxWidth={1.7}
+                maxWidth={1.6}
                 textAlign="center"
                 anchorX="center"
                 anchorY="middle"
                 lineHeight={1.4}
+                overflowWrap="break-word"
+                clipRect={[-0.85, -0.55, 0.85, 0.55]}
             >
                 {textoFrente}
             </Text>
@@ -516,13 +518,15 @@ function CartaAtiva({
             <Text
                 position={[0, -0.012, -0.05]}
                 rotation={[Math.PI / 2, 0, Math.PI]}
-                fontSize={0.1}
+                fontSize={textoVerso.length > 40 ? 0.07 : 0.1}
                 color={C.tinta}
-                maxWidth={1.7}
+                maxWidth={1.6}
                 textAlign="center"
                 anchorX="center"
                 anchorY="middle"
                 lineHeight={1.4}
+                overflowWrap="break-word"
+                clipRect={[-0.85, -0.55, 0.85, 0.55]}
             >
                 {textoVerso}
             </Text>
