@@ -54,6 +54,7 @@ export type FaseEstudo =
     | 'virada'
     | 'escrevendo_frente'
     | 'escrevendo_verso'
+    | 'salvando'
     | 'concluido'
 
 export interface CenaInteracaoProps {
@@ -510,6 +511,59 @@ function CartaAtiva({
 
 // ── SELOS DE AVALIAÇÃO ──────────────────────────────────────────────────
 
+function CartaVoando({ textoFrente, onTerminou }: {
+    textoFrente: string
+    onTerminou: () => void
+}) {
+    const ref = useRef<THREE.Group>(null)
+    const matRef = useRef<THREE.MeshStandardMaterial>(null)
+    const progresso = useRef(0)
+
+    useFrame((_, dt) => {
+        progresso.current += dt * 1.5 // Dura ~0.7s
+        if (ref.current) {
+            // Sobe suavemente
+            ref.current.position.y = 0.4 + progresso.current * 2
+            // Encolhe ligeiramente
+            const escala = Math.max(0, 1 - progresso.current * 0.5)
+            ref.current.scale.setScalar(escala)
+        }
+        if (matRef.current) {
+            // Fade out
+            matRef.current.opacity = Math.max(0, 1 - progresso.current * 1.4)
+        }
+        if (progresso.current >= 1) {
+            onTerminou()
+        }
+    })
+
+    return (
+        <group ref={ref} position={[0.2, 0.4, 0.5]}>
+            <RoundedBox args={[1.9, 0.018, 1.3]} radius={0.03} smoothness={3}>
+                <meshStandardMaterial
+                    ref={matRef}
+                    color={C.papel}
+                    roughness={0.88}
+                    transparent
+                    opacity={1}
+                />
+            </RoundedBox>
+            <Text
+                position={[0, 0.012, 0.05]}
+                rotation={[-Math.PI / 2, 0, 0]}
+                fontSize={0.1}
+                color={C.tinta}
+                maxWidth={1.7}
+                textAlign="center"
+                anchorX="center"
+                anchorY="middle"
+            >
+                {textoFrente}
+            </Text>
+        </group>
+    )
+}
+
 function SeloItem({ cor, label, intervalo, x, onClick }: {
     cor: string
     label: string
@@ -882,6 +936,14 @@ export function CenaInteracao({
             {fase === 'idle' && totalHoje === 0 && <DicaVazia />}
 
             {/* Carta ativa */}
+{/* Animação de card voando ao salvar */}
+            {fase === 'salvando' && (
+                <CartaVoando
+                    textoFrente={textoFrenteSalvo}
+                    onTerminou={() => {}}
+                />
+            )}
+
             {mostrarCarta && (
                 <CartaAtiva
                     key={cartaAtual?.id ?? `new-${fase}`}

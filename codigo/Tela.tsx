@@ -88,7 +88,12 @@ function App() {
         if (view === 'desk') {
             inicializar().then(() => setFase('idle')).catch(() => {})
         } else {
+            // Animação: card voa por ~0.7s, depois volta a idle
+        setFase('salvando')
+        setTimeout(() => {
             setFase('idle')
+        }, 700)
+        setTextoFrente('')
             setEditando(false)
         }
     }, [view, inicializar])
@@ -139,7 +144,6 @@ function App() {
 
     function handleClickLapis() {
         setTextoInput('')
-        setTextoFrente('')
         setFase('escrevendo_frente')
         setEditando(true)
     }
@@ -163,9 +167,14 @@ function App() {
         const hoje = cartasParaHoje(cartasAtualizadas)
         setFila(hoje)
         setTextoInput('')
-        setTextoFrente('')
         setEditando(false)
-        setFase('idle')
+
+        // Animação: card voa por ~0.7s, depois volta a idle
+        setFase('salvando')
+        setTimeout(() => {
+            setTextoFrente('')
+            setFase('idle')
+        }, 700)
     }
 
     // ── CAPTURA DE TECLADO PARA ESCRITA 3D ────────────────────────
@@ -186,8 +195,12 @@ function App() {
                 e.preventDefault()
                 setEditando(false)
                 setTextoInput('')
-                setTextoFrente('')
-                setFase('idle')
+                // Animação: card voa por ~0.7s, depois volta a idle
+        setFase('salvando')
+        setTimeout(() => {
+            setFase('idle')
+        }, 700)
+        setTextoFrente('')
                 return
             }
             if (e.key === 'Backspace') {
