@@ -20,12 +20,12 @@ import { criarCarta, cartasParaHoje, avaliarCarta, previewIntervalos, Rating } f
 import { carregarCartas, adicionarCarta, atualizarCarta, salvarRevisao, garantirBaralhoPadrao } from './estudo/store'
 import type { DyCard as _DyCard } from './estudo/tipos'
 import type { PreviewIntervalos as _PreviewIntervalos } from './estudo/fsrs'
-import { POSICAO_ESCRIVANINHA, POSICAO_CAMA } from './posicoes'
+import { POSICAO_ESCRIVANINHA, POSICAO_CAMA, POSICAO_ESTANTE } from './posicoes'
 type DyCard = _DyCard
 type PreviewIntervalos = _PreviewIntervalos
 import * as THREE from 'three'
 
-type ViewState = 'room' | 'desk' | 'bed'
+type ViewState = 'room' | 'desk' | 'bed' | 'shelf'
 
 function App() {
     // ── ESTADO DO QUARTO ────────────────────────────────────────
@@ -281,6 +281,10 @@ function App() {
                         onMesaClick={() => {
                             setView('desk')
                             setTargetPosition(POSICAO_ESCRIVANINHA)
+                        }}
+                        onEstanteClick={() => {
+                            setView('shelf')
+                            setTargetPosition(POSICAO_ESTANTE)
                         }}
                     />
                     <Personagem view={view} targetPosition={targetPosition} skinColor={skinColor} />
