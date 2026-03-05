@@ -44,7 +44,7 @@ function App() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_todasCartas, setTodasCartas] = useState<DyCard[]>([])
 
-    // ── ESTADO DE ESCRITA (textarea invisível) ──────────────────
+    // ── ESTADO DE ESCRITA ───────────────────────────────────────
     const [textoInput, setTextoInput] = useState('')
     const [textoFrente, setTextoFrente] = useState('')
     const [editando, setEditando] = useState(false)
@@ -167,24 +167,69 @@ function App() {
         setFase('idle')
     }
 
+    // ── CAPTURA DE TECLADO PARA ESCRITA 3D ────────────────────────
+    useEffect(() => {
+        if (!editando) return
+
+        function handleEscrita(e: KeyboardEvent) {
+            // Ignora se foco está num input HTML real (ex: mobile fallback)
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+
+            // Teclas especiais
+            if (e.key === 'Enter') {
+                e.preventDefault()
+                handleConfirmarTexto()
+                return
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault()
+                setEditando(false)
+                setTextoInput('')
+                setTextoFrente('')
+                setFase('idle')
+                return
+            }
+            if (e.key === 'Backspace') {
+                e.preventDefault()
+                setTextoInput(prev => prev.slice(0, -1))
+                return
+            }
+
+            // Ignora teclas de controle (Shift, Ctrl, Alt, Meta, Tab, arrows, F-keys)
+            if (e.key.length > 1) return
+            if (e.ctrlKey || e.metaKey || e.altKey) return
+
+            // Caractere normal — adiciona ao texto
+            e.preventDefault()
+            setTextoInput(prev => prev + e.key)
+        }
+
+        window.addEventListener('keydown', handleEscrita)
+        return () => window.removeEventListener('keydown', handleEscrita)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editando, fase, textoFrente])
+
     // ── ATALHOS DE TECLADO ──────────────────────────────────────
 
     useEffect(() => {
         function handleKey(e: KeyboardEvent) {
+            // Quando editando, o outro useEffect cuida de tudo
+            if (editando) return
+
             const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
 
             // F = free camera (dev)
-            if (e.key === 'f' && !editando && !isInput) {
+            if (e.key === 'f' && !isInput) {
                 setFreeCamera(prev => !prev)
             }
 
-            // Space = virar carta (se estudando e não editando)
+            // Space = virar carta (se estudando)
             if (e.key === ' ' && fase === 'estudando' && !isInput) {
                 e.preventDefault()
                 handleClickCarta()
             }
 
-            // 1-4 = avaliar (se virada e não editando)
+            // 1-4 = avaliar (se virada)
             if (fase === 'virada' && !isInput) {
                 const n = parseInt(e.key)
                 if (n >= 1 && n <= 4) handleAvaliar(n)
@@ -192,12 +237,7 @@ function App() {
 
             // Escape = voltar ao quarto
             if (e.key === 'Escape') {
-                if (editando) {
-                    setEditando(false)
-                    setFase('idle')
-                } else {
-                    setView('room')
-                }
+                setView('room')
             }
         }
 
