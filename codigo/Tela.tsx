@@ -88,12 +88,7 @@ function App() {
         if (view === 'desk') {
             inicializar().then(() => setFase('idle')).catch(() => {})
         } else {
-            // Animação: card voa por ~0.7s, depois volta a idle
-        setFase('salvando')
-        setTimeout(() => {
             setFase('idle')
-        }, 700)
-        setTextoFrente('')
             setEditando(false)
         }
     }, [view, inicializar])
@@ -195,12 +190,8 @@ function App() {
                 e.preventDefault()
                 setEditando(false)
                 setTextoInput('')
-                // Animação: card voa por ~0.7s, depois volta a idle
-        setFase('salvando')
-        setTimeout(() => {
-            setFase('idle')
-        }, 700)
-        setTextoFrente('')
+                setTextoFrente('')
+                setFase('idle')
                 return
             }
             if (e.key === 'Backspace') {
