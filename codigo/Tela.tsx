@@ -52,6 +52,7 @@ function App() {
     // ── REFS PARA EVENT SOURCE (fix multi-Canvas click bug) ─────
     const quartoContainerRef = useRef<HTMLDivElement>(null)
     const interacaoContainerRef = useRef<HTMLDivElement>(null)
+    const mobileInputRef = useRef<HTMLInputElement>(null)
 
     // ── INICIALIZAÇÃO ───────────────────────────────────────────
 
@@ -314,6 +315,9 @@ function App() {
                         onClickLapis={handleClickLapis}
                         onAvaliar={handleAvaliar}
                         onConfirmarTexto={handleConfirmarTexto}
+                        onAbrirTecladoMobile={() => {
+                            mobileInputRef.current?.focus()
+                        }}
                     />
                     <EffectComposer>
                         <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.4} intensity={0.8} />
@@ -321,6 +325,27 @@ function App() {
                     </EffectComposer>
                 </Canvas>
             </div>
+
+            {/* ══ INPUT MOBILE (fora da tela, abre teclado virtual do OS) ══ */}
+            {editando && (
+                <input
+                    ref={mobileInputRef}
+                    className="input-mobile-offscreen"
+                    type="text"
+                    value={textoInput}
+                    onChange={(e) => setTextoInput(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleConfirmarTexto()
+                        }
+                    }}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                />
+            )}
         </div>
     )
 }

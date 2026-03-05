@@ -41,3 +41,17 @@ body {
         border-top: 2px solid rgba(255, 255, 255, 0.04);
     }
 }
+
+/* ── INPUT MOBILE (fora da tela) ─────────────────────────── */
+/* Abre o teclado virtual do OS em dispositivos touch.
+   O input fica invisível — o texto aparece no 3D. */
+
+.input-mobile-offscreen {
+    position: fixed;
+    top: -9999px;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}

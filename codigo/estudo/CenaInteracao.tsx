@@ -71,6 +71,7 @@ export interface CenaInteracaoProps {
     onClickLapis: () => void
     onAvaliar: (nota: number) => void
     onConfirmarTexto: () => void
+    onAbrirTecladoMobile?: () => void
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -734,6 +735,38 @@ function DicaVazia() {
 // ── COMPONENTE PRINCIPAL ────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════
 
+function BotaoTeclado({ onClick }: { onClick: () => void }) {
+    const [hover, setHover] = useState(false)
+
+    return (
+        <group
+            position={[-1.5, 0.08, 1.5]}
+            onClick={(e) => { e.stopPropagation(); onClick() }}
+            onPointerOver={() => { setHover(true); document.body.style.cursor = 'pointer' }}
+            onPointerOut={() => { setHover(false); document.body.style.cursor = 'auto' }}
+        >
+            <RoundedBox args={[0.8, 0.06, 0.4]} radius={0.02} smoothness={2} castShadow>
+                <meshStandardMaterial
+                    color="#606060"
+                    roughness={0.7}
+                    emissive={hover ? '#606060' : '#000000'}
+                    emissiveIntensity={hover ? 0.2 : 0}
+                />
+            </RoundedBox>
+            <Text
+                position={[0, 0.04, 0]}
+                rotation={[-Math.PI / 2, 0, 0]}
+                fontSize={0.06}
+                color="#ffffff"
+                anchorX="center"
+                anchorY="middle"
+            >
+                teclado
+            </Text>
+        </group>
+    )
+}
+
 export function CenaInteracao({
     ativo,
     fase,
@@ -749,6 +782,7 @@ export function CenaInteracao({
     onClickLapis,
     onAvaliar,
     onConfirmarTexto,
+    onAbrirTecladoMobile,
 }: CenaInteracaoProps) {
 
     // Luz ambiente que acompanha o estado ativo/inativo
@@ -857,6 +891,11 @@ export function CenaInteracao({
                     editando={cartaEditando}
                     onClick={onClickCarta}
                 />
+            )}
+
+            {/* Botão teclado mobile */}
+            {(fase === 'escrevendo_frente' || fase === 'escrevendo_verso') && onAbrirTecladoMobile && (
+                <BotaoTeclado onClick={onAbrirTecladoMobile} />
             )}
 
             {/* Selos de avaliação */}
