@@ -67,6 +67,7 @@ export interface CenaInteracaoProps {
     indice: number
     intervalos: PreviewIntervalos | null
     stats: { total: number; acertos: number; erros: number }
+    feedback?: 'acerto' | 'erro' | null
     onClickPilha: () => void
     onClickCarta: () => void
     onClickLapis: () => void
@@ -399,12 +400,14 @@ function CartaAtiva({
     textoVerso,
     virada,
     editando,
+    feedback,
     onClick,
 }: {
     textoFrente: string
     textoVerso: string
     virada: boolean
     editando: boolean
+    feedback?: 'acerto' | 'erro' | null
     onClick: () => void
 }) {
     const ref = useRef<THREE.Group>(null)
@@ -412,7 +415,7 @@ function CartaAtiva({
     const velocidadeFlip = useRef(0)
     const posY = useRef(0.08)
 
-    useFrame((_, dt) => {
+    useFrame((s, dt) => {
         const tgtFlip = virada ? Math.PI : 0
         const diff = tgtFlip - flip.current
 
@@ -431,6 +434,13 @@ function CartaAtiva({
         if (ref.current) {
             ref.current.rotation.x = flip.current
             ref.current.position.y = posY.current
+
+            // Shake no erro
+            if (feedback === 'erro') {
+                ref.current.position.x = 0.2 + Math.sin(s.clock.elapsedTime * 40) * 0.03
+            } else if (!feedback) {
+                ref.current.position.x = THREE.MathUtils.lerp(ref.current.position.x, 0.2, dt * 8)
+            }
         }
     })
 
@@ -444,7 +454,12 @@ function CartaAtiva({
         >
             {/* Corpo da carta (bordas arredondadas) */}
             <RoundedBox args={[1.9, 0.018, 1.3]} radius={0.03} smoothness={3} castShadow receiveShadow>
-                <meshStandardMaterial color={C.papel} roughness={0.88} />
+                <meshStandardMaterial
+                    color={C.papel}
+                    roughness={0.88}
+                    emissive={feedback === 'acerto' ? '#40a050' : feedback === 'erro' ? '#c04040' : '#000000'}
+                    emissiveIntensity={feedback ? 0.4 : 0}
+                />
             </RoundedBox>
 
             {/* Linhas do papel */}
@@ -844,6 +859,7 @@ export function CenaInteracao({
     indice,
     intervalos,
     stats,
+    feedback,
     onClickPilha,
     onClickCarta,
     onClickLapis,
@@ -964,6 +980,7 @@ export function CenaInteracao({
                     textoVerso={displayVerso}
                     virada={cartaVirada}
                     editando={cartaEditando}
+                    feedback={feedback}
                     onClick={onClickCarta}
                 />
             )}

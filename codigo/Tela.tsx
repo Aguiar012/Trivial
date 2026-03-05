@@ -44,6 +44,9 @@ function App() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_todasCartas, setTodasCartas] = useState<DyCard[]>([])
 
+    // ── FEEDBACK VISUAL ─────────────────────────────────────────
+    const [ultimoFeedback, setUltimoFeedback] = useState<'acerto' | 'erro' | null>(null)
+
     // ── ESTADO DE ESCRITA ───────────────────────────────────────
     const [textoInput, setTextoInput] = useState('')
     const [textoFrente, setTextoFrente] = useState('')
@@ -128,6 +131,10 @@ function App() {
             acertos: prev.acertos + (nota >= 3 ? 1 : 0),
             erros: prev.erros + (nota === 1 ? 1 : 0),
         }))
+
+        // Feedback visual
+        setUltimoFeedback(nota >= 3 ? 'acerto' : 'erro')
+        setTimeout(() => setUltimoFeedback(null), 600)
 
         if (indice + 1 < fila.length) {
             setIndice(indice + 1)
@@ -314,6 +321,7 @@ function App() {
                         indice={indice}
                         intervalos={intervalos}
                         stats={stats}
+                        feedback={ultimoFeedback}
                         onClickPilha={handleClickPilha}
                         onClickCarta={handleClickCarta}
                         onClickLapis={handleClickLapis}
