@@ -131,7 +131,7 @@ interface EstanteProps {
 export function EstanteInterativa({ decks, onDeckClick }: EstanteProps) {
     // Distribui caixas nas prateleiras (max 3 por prateleira)
     const PRATELEIRA_Y = [0.3, 1.2, 2.1]
-    const PRATELEIRA_X = [-0.25, 0.1, 0.45]
+    const PRATELEIRA_X = [-0.25, 1, 0.45]
 
     return (
         <group>

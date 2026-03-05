@@ -17,7 +17,8 @@ import { Personagem } from './pecas/Personagem'
 import { Camera } from './pecas/Camera'
 import { CenaInteracao, type FaseEstudo } from './estudo/CenaInteracao'
 import { criarCarta, cartasParaHoje, avaliarCarta, previewIntervalos, Rating } from './estudo/fsrs'
-import { carregarCartas, adicionarCarta, atualizarCarta, salvarRevisao, garantirBaralhoPadrao } from './estudo/store'
+import { carregarCartas, carregarBaralhos, adicionarCarta, atualizarCarta, salvarRevisao, garantirBaralhoPadrao } from './estudo/store'
+import { EstanteInterativa, type DeckInfo } from './pecas/Estante'
 import type { DyCard as _DyCard } from './estudo/tipos'
 import type { PreviewIntervalos as _PreviewIntervalos } from './estudo/fsrs'
 import { POSICAO_ESCRIVANINHA, POSICAO_CAMA, POSICAO_ESTANTE } from './posicoes'
@@ -44,6 +45,9 @@ function App() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_todasCartas, setTodasCartas] = useState<DyCard[]>([])
 
+    // ── DECKS PARA A ESTANTE ──────────────────────────────────────
+    const [decksInfo, setDecksInfo] = useState<DeckInfo[]>([])
+
     // ── FEEDBACK VISUAL ─────────────────────────────────────────
     const [ultimoFeedback, setUltimoFeedback] = useState<'acerto' | 'erro' | null>(null)
 
@@ -68,6 +72,21 @@ function App() {
             const hoje = cartasParaHoje(cartas)
             setFila(hoje)
             setStats({ total: hoje.length, acertos: 0, erros: 0 })
+
+            // Calcular info dos decks para a estante
+            const baralhos = await carregarBaralhos()
+            const infos: DeckInfo[] = baralhos.map(b => {
+                const cartasDoDeck = cartas.filter(c => c.baralhoId === b.id)
+                const hojeDoDeck = cartasParaHoje(cartasDoDeck)
+                return {
+                    id: b.id,
+                    nome: b.nome,
+                    cor: b.cor,
+                    totalCartas: cartasDoDeck.length,
+                    cartasHoje: hojeDoDeck.length,
+                }
+            })
+            setDecksInfo(infos)
         } catch (err) {
             console.warn('[Trivial] Erro ao inicializar:', err)
         }
@@ -294,6 +313,26 @@ function App() {
                             <ringGeometry args={[0.2, 0.25, 32]} />
                             <meshBasicMaterial color="#ffffff" transparent opacity={0.4} />
                         </mesh>
+                    )}
+
+                    {view === 'shelf' && (
+                        <group position={[-4.0, -2, 2.0]} rotation={[0, Math.PI / 2, 0]}>
+                            <EstanteInterativa
+                                decks={decksInfo}
+                                onDeckClick={(deckId) => {
+                                    setBaralhoId(deckId)
+                                    carregarCartas().then(cartas => {
+                                        const cartasDoDeck = cartas.filter(c => c.baralhoId === deckId)
+                                        setTodasCartas(cartasDoDeck)
+                                        const hoje = cartasParaHoje(cartasDoDeck)
+                                        setFila(hoje)
+                                        setStats({ total: hoje.length, acertos: 0, erros: 0 })
+                                    })
+                                    setView('desk')
+                                    setTargetPosition(POSICAO_ESCRIVANINHA)
+                                }}
+                            />
+                        </group>
                     )}
 
                     <Environment preset="sunset" />
