@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Ambiente (NUNCA commitar!)
+.env
+.env.local
+.env.*.local
+
+# Worktrees
+.worktrees/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
