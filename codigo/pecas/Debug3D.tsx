@@ -90,7 +90,7 @@ export function Debug3D() {
             }
 
             // Bounding box só em meshes (têm geometria)
-            if ((obj as THREE.Mesh).isMesh || (obj as THREE.SkinnedMesh).isSkinnedMesh) {
+            if (obj instanceof THREE.Mesh || obj instanceof THREE.SkinnedMesh) {
                 try {
                     bbox.setFromObject(obj)
                     const tamanho = new THREE.Vector3()
@@ -134,8 +134,8 @@ export function Debug3D() {
                 auxiliaresRef.current.push(eixos)
 
                 // Bounding box wireframe amarela em meshes
-                if ((obj as THREE.Mesh).isMesh) {
-                    const boxHelper = new THREE.BoxHelper(obj as THREE.Mesh, 0xffff00)
+                if (obj instanceof THREE.Mesh) {
+                    const boxHelper = new THREE.BoxHelper(obj, 0xffff00)
                     boxHelper.userData.__debugHelper = true
                     scene.add(boxHelper)
                     auxiliaresRef.current.push(boxHelper)
@@ -148,6 +148,9 @@ export function Debug3D() {
             clearTimeout(timeout)
             auxiliaresRef.current.forEach(h => {
                 if (h.parent) h.parent.remove(h)
+                if ((h as THREE.AxesHelper | THREE.BoxHelper).dispose) {
+                    (h as any).dispose()
+                }
             })
             auxiliaresRef.current = []
         }
