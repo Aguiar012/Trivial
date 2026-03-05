@@ -19,6 +19,7 @@ import { CenaInteracao, type FaseEstudo } from './estudo/CenaInteracao'
 import { criarCarta, cartasParaHoje, avaliarCarta, previewIntervalos, Rating } from './estudo/fsrs'
 import { carregarCartas, carregarBaralhos, adicionarCarta, atualizarCarta, salvarRevisao, garantirBaralhoPadrao } from './estudo/store'
 import { EstanteInterativa, type DeckInfo } from './pecas/Estante'
+import { Debug3D } from './pecas/Debug3D'
 import type { DyCard as _DyCard } from './estudo/tipos'
 import type { PreviewIntervalos as _PreviewIntervalos } from './estudo/fsrs'
 import { POSICAO_ESCRIVANINHA, POSICAO_CAMA, POSICAO_ESTANTE } from './posicoes'
@@ -336,6 +337,7 @@ function App() {
                     )}
 
                     <Environment preset="sunset" />
+                    <Debug3D />
                     <EffectComposer>
                         <Bloom luminanceThreshold={0.6} luminanceSmoothing={0.9} intensity={0.5} />
                         <Vignette darkness={0.5} offset={0.3} />
@@ -387,6 +389,7 @@ function App() {
                     ref={mobileInputRef}
                     className="input-mobile-offscreen"
                     type="text"
+                    tabIndex={-1}
                     value={textoInput}
                     onChange={(e) => setTextoInput(e.target.value)}
                     onKeyDown={(e) => {
