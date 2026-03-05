@@ -787,6 +787,52 @@ function MensagemConclusao({ stats }: { stats: { total: number; acertos: number;
 
 // ── DICA QUANDO MESA VAZIA ──────────────────────────────────────────────
 
+function PostItStreak({ acertos }: { acertos: number }) {
+    const ref = useRef<THREE.Group>(null)
+
+    useFrame((s) => {
+        if (ref.current) {
+            // Leve balanço como post-it grudado
+            ref.current.rotation.z = Math.sin(s.clock.elapsedTime * 1.2) * 0.03
+        }
+    })
+
+    if (acertos === 0) return null
+
+    return (
+        <group ref={ref} position={[-2.3, 0.09, -0.8]} rotation={[-Math.PI / 2 + 0.05, 0, 0.1]}>
+            {/* Post-it amarelo */}
+            <RoundedBox args={[0.5, 0.003, 0.5]} radius={0.02} smoothness={2} castShadow>
+                <meshStandardMaterial color="#f8e44a" roughness={0.9} />
+            </RoundedBox>
+            {/* Número grande */}
+            <Text
+                position={[0, 0.005, -0.05]}
+                rotation={[0, 0, 0]}
+                fontSize={0.18}
+                color="#5a4a00"
+                anchorX="center"
+                anchorY="middle"
+            >
+                {acertos}
+            </Text>
+            {/* Label */}
+            <Text
+                position={[0, 0.005, 0.15]}
+                rotation={[0, 0, 0]}
+                fontSize={0.055}
+                color="#7a6a10"
+                anchorX="center"
+                anchorY="middle"
+            >
+                acertos
+            </Text>
+        </group>
+    )
+}
+
+// ── DICA QUANDO MESA VAZIA ──────────────────────────────────────────────
+
 function DicaVazia() {
     const ref = useRef<THREE.Group>(null)
 
@@ -1006,6 +1052,11 @@ export function CenaInteracao({
             {/* Progresso */}
             {(fase === 'estudando' || fase === 'virada') && (
                 <Progresso total={totalHoje} indice={indice} />
+            )}
+
+            {/* Post-it de streak */}
+            {(fase === 'estudando' || fase === 'virada' || fase === 'concluido') && (
+                <PostItStreak acertos={stats.acertos} />
             )}
 
             {/* Mensagem de conclusão */}
