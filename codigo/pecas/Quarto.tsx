@@ -108,6 +108,27 @@ interface QuartoProps {
     onEstanteClick?: () => void
 }
 
+// ── SISTEMA DE COORDENADAS ───────────────────────────────────────────────
+//
+// ATENÇÃO: Este componente usa <group position={[0, -2, 0]}> como raiz.
+// Todas as posições DENTRO deste arquivo são LOCAIS (relativas ao grupo).
+//
+// Para converter para world-space:  world = local + [0, -2, 0]
+// Para converter de world-space:    local = world - [0, -2, 0]
+//
+// Exemplos:
+//   Escrivaninha: local [-2.5,  2, -3]  → world [-2.5,  0, -3]
+//   Cama:         local [ 2.2,  0, 1.8] → world [ 2.2, -2,  1.8]
+//   Banquinho:    local [ 0, -0.35, 2.4] dentro da Escrivaninha
+//                 world = [-2.5, 2-2-0.35, -3+2.4] = [-2.5, -0.35, -0.6]
+//
+// O PERSONAGEM e POSICOES.TS usam world-space diretamente (Y=-2 no chão).
+//
+// Bounds do quarto (world-space):
+//   X: [-4.75, 4.75]   Y: [-2.5, 6]   Z: [-4.75, 4.75]
+//   Chão: Y = -2   |   Tampo da mesa: Y ≈ 0   |   Teto: Y ≈ 6
+// ────────────────────────────────────────────────────────────────────────
+
 export function Quarto({ onFloorClick, onCamaClick, onMesaClick, onEstanteClick }: QuartoProps) {
     // ── REFS PARA ANIMAÇÕES VISUAIS ──────────────────────────────────
     const camaRef = useRef<THREE.Group>(null)
@@ -146,7 +167,7 @@ export function Quarto({ onFloorClick, onCamaClick, onMesaClick, onEstanteClick 
     })
 
     return (
-        <group position={[0, -2, 0]}>
+        <group name="Quarto" position={[0, -2, 0]}>
 
             {/* ══════════════════════════════════════════════════════
                 ESTRUTURA DO QUARTO (paredes, chão, janela)
@@ -228,7 +249,10 @@ export function Quarto({ onFloorClick, onCamaClick, onMesaClick, onEstanteClick 
             ══════════════════════════════════════════════════════ */}
 
             {/* ESCRIVANINHA — clique pisca a tela + manda o personagem sentar */}
+            {/* ESCRIVANINHA — local [-2.5,2,-3] → world [-2.5,0,-3]
+    Tampo em world Y≈0. Banquinho em world [-2.5,-2.35,-0.6] */}
             <group
+                name="Escrivaninha"
                 position={[-2.5, 2, -3]}
                 onClick={(e) => {
                     e.stopPropagation()
@@ -277,7 +301,10 @@ export function Quarto({ onFloorClick, onCamaClick, onMesaClick, onEstanteClick 
 
             {/* CAMA — modelo 3D com bounce ao clicar */}
             {/* posição ajustada para caber dentro das paredes */}
+            {/* CAMA — local [2.2,0,1.8] → world [2.2,-2,1.8]
+    Topo do colchão em world Y≈-0.8 */}
             <group
+                name="Cama"
                 ref={camaRef}
                 position={[2.2, 0, 1.8]}
                 onClick={(e) => {
@@ -303,7 +330,10 @@ export function Quarto({ onFloorClick, onCamaClick, onMesaClick, onEstanteClick 
             {/* Estante de livros — encostada na parede esquerda */}
             {/* X=-4.0: a cada scale 1.5 o modelo se estende ~0.57u no eixo X após rotação,
                 ficando em X=-4.57 — seguro (parede em X=-4.75). Era -4.3 → clipava em -4.83 */}
+            {/* ESTANTE — local [-4.0,0,2.0] rotation Y=PI/2 → world [-4.0,-2,2.0]
+    Personagem vai até world [-3.5,-2,2.0] (POSICAO_ESTANTE) */}
             <group
+                name="Estante"
                 position={[-4.0, 0, 2.0]}
                 rotation={[0, Math.PI / 2, 0]}
                 onClick={(e) => { e.stopPropagation(); onEstanteClick?.() }}

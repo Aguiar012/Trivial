@@ -5,6 +5,15 @@ import * as THREE from 'three'
 // Se você mover um móvel, só precisa mudar aqui — o resto do código
 // vai funcionar automaticamente.
 
+// ── ATENÇÃO: TODAS AS POSIÇÕES AQUI SÃO WORLD-SPACE ─────────────────────
+// O Quarto tem <group position={[0,-2,0]}>, mas estas constantes NÃO usam
+// coordenadas locais do Quarto — são posições absolutas no mundo 3D.
+//
+// Chão do quarto em world-space: Y = -2
+// Quem usa estas posições: Personagem.tsx (world-space direto)
+//                           Tela.tsx (setTargetPosition)
+// ────────────────────────────────────────────────────────────────────────
+
 /** Nível do chão onde o personagem anda (eixo Y global) */
 export const CHAO_Y = -2
 
