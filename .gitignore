@@ -46,3 +46,19 @@ log.txt
 *.njsproj
 *.sln
 *.sw?
+
+# Arquivos temporários de teste
+test-results/
+test_debug_desk.png
+status.txt
+roadmap.txt
+run_test_visible.js
+take_screenshot.js
+all-skills-dump.md
+eslint.json
+eslint_errors.json
+eslint_output.txt
+lint_output.txt
+lint_results.json
+lint_script.js
+geminicli2api/
