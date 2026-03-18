@@ -330,7 +330,7 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
                 border-radius:12px; padding:14px; box-shadow:0 4px 24px rgba(0,0,0,0.6);
                 min-width:220px; max-width:320px;
             `;
-            const MODEL = 'gemini-2.0-flash-lite';
+            const MODEL = 'gemini-3.1-flash-lite-preview';
             debugPanel.innerHTML = `
                 <div style="font-weight:bold;margin-bottom:8px;color:#a78bfa">✨ Gemini Debug</div>
                 <div style="margin-bottom:6px;opacity:0.7">Modelo: ${MODEL}</div>
