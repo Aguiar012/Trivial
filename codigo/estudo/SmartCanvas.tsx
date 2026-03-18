@@ -141,13 +141,19 @@ const COMMIT_CONFIG = {
     /** Margem mínima entre top1 e top2 */
     minMargin: 0.03,
     /** Quantas avaliações consecutivas com o mesmo top1 antes de comitar */
-    requiredStableCount: 2,
+    requiredStableCount: 4,
     /** Delay em ms após pointerup antes de rodar a avaliação */
     evalDelayMs: 150,
     /** Tolerância de proximidade para clustering de strokes (px) */
     clusterTolerance: 15,
     /** Tempo máximo (ms) que strokes ficam sem commit antes de forçar (se score ok) */
-    maxWaitMs: 650, // Baixado de 1200ms para ~600ms pra melhorar agilidade
+    maxWaitMs: 1200,
+    /**
+     * Gap mínimo (ms) desde o último pointerUp para permitir commit.
+     * Evita comitar o 1º traço de um caractere multi-traço enquanto o usuário
+     * ainda está desenhando o 2º traço (ex: pingo do 'i', barra do '+', topo do 't').
+     */
+    interStrokeGapMs: 380,
 };
 
 // Caracteres que visualmente são quase impossíveis de diferenciar em manuscrito
@@ -169,6 +175,14 @@ const AMBIGUOUS_GROUPS = [
 const areAmbiguous = (c1: string, c2: string) => {
     return AMBIGUOUS_GROUPS.some(group => group.has(c1) && group.has(c2));
 };
+
+/**
+ * Caracteres de 1 traço que são subconjuntos visuais de caracteres multi-traço.
+ * Ex: o traço vertical de 't' parece 'l' ou '1'; o traço de '-' parece parte de '='.
+ * Quando top1 é um destes E o cluster tem apenas 1 stroke, aguardamos maxWaitMs
+ * antes de comitar — dando tempo ao usuário de adicionar o 2º traço.
+ */
+const PATIENCE_CHARS = new Set(['l', '1', 'I', 'i', 'j', '-', 'c', 'C', 'o', 'O', '0', 'r', 'u', 'n', 'v', 'V']);
 
 // ═══════════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
@@ -194,15 +208,20 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
         x: number;
         y: number;
         strokeId: string;
+        wrongName: string;
         alternatives: {name: string, score: number}[];
         originalStrokes: Stroke[];
         showSymbols?: boolean;
     } | null>(null);
 
+    const [aiLoadingStrokes, setAiLoadingStrokes] = useState<Set<string>>(new Set());
+
     // Map de estabilidade por "clusterKey" (hash dos IDs dos strokes no cluster)
     const stabilityMapRef = useRef<Map<string, StabilityState>>(new Map());
     const recognitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const animFrameRef = useRef<number>(0);
+    // Timestamp do último pointerUp — para segurar commit enquanto usuário ainda está escrevendo
+    const lastPointerUpRef = useRef<number>(0);
 
     // ── History ──────────────────────────────────────────────────
     const saveHistory = useCallback((newStrokes: Stroke[]) => {
@@ -240,6 +259,97 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
             return '';
         }
     }));
+
+    const findSymbolWithAI = async (strokesToFind: Stroke[], strokeIdToFix: string) => {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) {
+            alert('VITE_GEMINI_API_KEY não configurada no .env');
+            return;
+        }
+
+        setAiLoadingStrokes(prev => new Set(prev).add(strokeIdToFix));
+        setCorrectionPopup(null);
+        try {
+            // Desenhar os traços em um canvas invisível
+            const canvas = document.createElement('canvas'); // Not using react state canvas
+            canvas.width = 120;
+            canvas.height = 120;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, 120, 120);
+
+            // Calcular a bounding box real dos strokes
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            strokesToFind.forEach(s => s.points.forEach(p => {
+                const px = Array.isArray(p) ? p[0] : (p as any).x;
+                const py = Array.isArray(p) ? p[1] : (p as any).y;
+                if (px < minX) minX = px;
+                if (py < minY) minY = py;
+                if (px > maxX) maxX = px;
+                if (py > maxY) maxY = py;
+            }));
+            const width = maxX - minX;
+            const height = maxY - minY;
+            const size = Math.max(width, height) || 1;
+            const padding = 10;
+            const scale = (120 - padding * 2) / size;
+
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = 'black';
+
+            strokesToFind.forEach(s => {
+                ctx.beginPath();
+                s.points.forEach((p, i) => {
+                    const px = Array.isArray(p) ? p[0] : (p as any).x;
+                    const py = Array.isArray(p) ? p[1] : (p as any).y;
+                    const cx = padding + (px - minX + (size - width) / 2) * scale;
+                    const cy = padding + (py - minY + (size - height) / 2) * scale;
+                    if (i === 0) ctx.moveTo(cx, cy);
+                    else ctx.lineTo(cx, cy);
+                });
+                ctx.stroke();
+            });
+
+            const base64 = canvas.toDataURL('image/jpeg').split(',')[1];
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: "This is a hand-drawn math symbol, physics symbol, or character. Return ONLY the single exact unicode character it most resembles (e.g. √, ∞, ∫, Σ, α, A, %, 2, ∛, matrix brackets). If it's a known math symbol, return it. No markdown, no explanation, no quotes, just the literal 1-character or 2-character symbol maximum." },
+                        { inlineData: { mimeType: "image/jpeg", data: base64 } }
+                    ]
+                }]
+            };
+
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            const symbol = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+            if (symbol && symbol.length <= 3) {
+                handleCorrection(strokeIdToFix, symbol, strokesToFind);
+            } else {
+                alert("A I.A. não conseguiu identificar de forma confiável um símbolo único. Resposta crua: " + symbol);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Erro de conexão ao acionar Gemini API");
+        } finally {
+            setAiLoadingStrokes(prev => {
+                const next = new Set(prev);
+                next.delete(strokeIdToFix);
+                return next;
+            });
+        }
+    };
 
     // Initialize history
     useEffect(() => {
@@ -338,7 +448,20 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
 
             let anyRemoved = false;
             const remainingStrokes = strokes.filter(s => {
-                if (s.points.length === 0) return true; // text strokes
+                if (s.points.length === 0) {
+                    // Texto commitado — borracha também apaga
+                    const tx = (s.textX ?? 0);
+                    const ty = (s.textY ?? 0);
+                    const textPoints: Point[] = [
+                        [tx,      ty - 36, 0.5],
+                        [tx + 28, ty - 36, 0.5],
+                        [tx + 28, ty + 4,  0.5],
+                        [tx,      ty + 4,  0.5],
+                    ];
+                    const intersect = doBoundingBoxesIntersect(eraserStroke, textPoints, 0, 0);
+                    if (intersect) { anyRemoved = true; return false; }
+                    return true;
+                }
                 const intersect = doBoundingBoxesIntersect(eraserStroke, s.points, 0, s.offsetY);
                 if (intersect) anyRemoved = true;
                 return !intersect;
@@ -367,7 +490,23 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
         if (eraseMode || gesture === 'scribble') {
             let anyRemoved = false;
             const remainingStrokes = strokes.filter(s => {
-                if (s.points.length === 0) return true; // text strokes
+                if (s.points.length === 0) {
+                    // Stroke de texto commitado — verifica se o rabisco/borracha passa por cima
+                    if (gesture === 'scribble' || eraseMode) {
+                        // Bounding box aproximada do glyph de texto (fontSize 38px, ~24px wide)
+                        const tx = (s.textX ?? 0);
+                        const ty = (s.textY ?? 0);
+                        const textPoints: Point[] = [
+                            [tx,      ty - 36, 0.5],
+                            [tx + 28, ty - 36, 0.5],
+                            [tx + 28, ty + 4,  0.5],
+                            [tx,      ty + 4,  0.5],
+                        ];
+                        const intersect = doBoundingBoxesIntersect(currentStroke, textPoints, 0, 0);
+                        if (intersect) { anyRemoved = true; return false; }
+                    }
+                    return true;
+                }
                 const intersect = doBoundingBoxesIntersect(currentStroke, s.points, 0, s.offsetY);
                 if (intersect) anyRemoved = true;
                 return !intersect;
@@ -387,6 +526,8 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
         
         setCurrentStroke(null);
 
+        lastPointerUpRef.current = Date.now();
+
         // AGENDA RECONHECIMENTO
         if (recognitionTimeoutRef.current) clearTimeout(recognitionTimeoutRef.current);
         recognitionTimeoutRef.current = setTimeout(() => {
@@ -397,28 +538,20 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
     // ── Salvar Stroke com alinhamento ────────────────────────────
 
     const saveStroke = (points: Point[]) => {
-        const { maxY, w, h } = getBounds(points);
-        let offsetY = 0;
-        
-        const isVerticalLine = h > w * 1.5 && h > 15;
-        
-        if (!isVerticalLine) {
-            const targetY = Math.ceil(maxY / lineHeight) * lineHeight;
-            const diff = targetY - maxY;
-            if (Math.abs(diff) < lineHeight * 0.4) {
-                offsetY = diff - 2;
-            }
-        }
-
+        // Strokes de tinta ficam nas coordenadas originais (offsetY = 0).
+        // O alinhamento à linha de pauta acontece apenas no commit,
+        // sobre o cluster inteiro — não por stroke individual.
+        // Isso garante que traços do mesmo caractere (ex: haste + barra do 't')
+        // fiquem próximos no espaço e sejam agrupados corretamente.
         const newStroke: Stroke = {
             id: Date.now().toString() + Math.random().toString(36).slice(2),
             points,
-            offsetY,
+            offsetY: 0,
             offsetX: 0,
             color: strokeColor,
             width: eraseMode ? 8 : strokeWidth,
         };
-        
+
         saveHistory([...strokes, newStroke]);
     };
 
@@ -427,6 +560,11 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
     // ═══════════════════════════════════════════════════════════════
 
     const runRecognitionLogic = () => {
+        // Não comitar se o usuário levantou a caneta há menos de interStrokeGapMs
+        // (ele pode estar no meio de desenhar um caractere multi-traço)
+        const timeSinceLastUp = Date.now() - lastPointerUpRef.current;
+        const userMightBeDrawing = timeSinceLastUp < COMMIT_CONFIG.interStrokeGapMs;
+
         setStrokes(currentStrokes => {
             if (currentStrokes.length === 0) return currentStrokes;
 
@@ -458,19 +596,26 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
                     const cand = inkStrokes[j];
                     if (processed.has(cand.id)) continue;
                     if (cand.points.length === 0) continue;
-                    
+
                     const b = getBounds(cand.points);
-                    const sy = b.minY + cand.offsetY;
+                    const sy  = b.minY + cand.offsetY;
                     const smy = b.maxY + cand.offsetY;
-                    const tol = COMMIT_CONFIG.clusterTolerance;
-                    
-                    // Só agrupa se overlaps/toca em X E Y (com tolerancia pequena)
-                    const intersect = !(
-                        b.minX > cBounds.maxX + tol || b.maxX < cBounds.minX - tol ||
-                        sy > cBounds.maxY + tol || smy < cBounds.minY - tol
-                    );
-                    
-                    if (intersect) {
+                    const tolX = COMMIT_CONFIG.clusterTolerance;
+                    const tolY = COMMIT_CONFIG.clusterTolerance + lineHeight * 0.6;
+
+                    // Verifica se o candidato intersecta com QUALQUER stroke já no cluster
+                    // (não com a bounding box union) — evita "cadeia" que une letras diferentes
+                    const touchesCluster = cluster.some(cs => {
+                        const cb = getBounds(cs.points);
+                        const csy  = cb.minY + cs.offsetY;
+                        const csmy = cb.maxY + cs.offsetY;
+                        return !(
+                            b.minX  > cb.maxX + tolX || b.maxX < cb.minX - tolX ||
+                            sy      > csmy    + tolY  || smy   < csy    - tolY
+                        );
+                    });
+
+                    if (touchesCluster) {
                         cluster.unshift(cand);
                         processed.add(cand.id);
                         cBounds.minX = Math.min(cBounds.minX, b.minX);
@@ -531,29 +676,43 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
                 const marginOk = margin >= COMMIT_CONFIG.minMargin || areAmbiguous(top1.name, top2.name);
                 
                 const isStable = stability.stableCount >= COMMIT_CONFIG.requiredStableCount;
-                const isVeryStable = stability.stableCount >= 4; // Fast-track: se ficou 4 cycles (~600ms) estável, f... margin
+                const isVeryStable = stability.stableCount >= 6; // Fast-track: se ficou 6 cycles (~900ms) estável, ignora margin
 
-                const firstEvalAge = stability.stableCount > 0 
+                const firstEvalAge = stability.stableCount > 0
                     ? Date.now() - (stability.lastEvalTime - stability.stableCount * 150)
                     : 0;
-                
+
                 const timedOut = meetsScore && (firstEvalAge > COMMIT_CONFIG.maxWaitMs || isVeryStable);
 
-                const shouldCommit = (meetsScore && marginOk && isStable) || timedOut;
+                // "Patience mode": se top1 é um caractere de 1-stroke que pode ser
+                // o início de um caractere multi-stroke (ex: 'l' → 't', '-' → '='),
+                // E o cluster ainda tem só 1 stroke, esperamos maxWaitMs inteiros.
+                const needsPatience = cluster.length === 1 && PATIENCE_CHARS.has(top1.name) && !timedOut;
+
+                // Bloqueia commit se o usuário acabou de terminar um traço recentemente,
+                // ou se estamos em patience mode. timedOut sempre desbloqueaa.
+                const shouldCommit = !timedOut
+                    ? !userMightBeDrawing && !needsPatience && meetsScore && marginOk && isStable
+                    : meetsScore;
 
                 if (!shouldCommit && meetsScore) {
                     const reasons = [];
                     if (!marginOk && !timedOut) reasons.push(`margin too low (<${(COMMIT_CONFIG.minMargin*100).toFixed(0)}%)`);
                     if (!isStable && !timedOut) reasons.push(`waiting for stability (${stability.stableCount}/${COMMIT_CONFIG.requiredStableCount})`);
+                    if (needsPatience) reasons.push(`patience (1-stroke ambiguous: '${top1.name}')`);
+                    if (userMightBeDrawing) reasons.push(`inter-stroke gap`);
                     console.log(`[Recognizer] ⏳ Waiting... top1: '${top1.name}' (${(top1.score * 100).toFixed(1)}%). Reasons: ${reasons.join(', ')}`);
                 }
 
                 if (shouldCommit) {
                     // COMMIT! Remove os strokes de tinta e adiciona o texto digital
                     nextStrokes = nextStrokes.filter(s => !cluster.some(c => c.id === s.id));
-                    
+
                     const centerX = cBounds.minX + (cBounds.maxX - cBounds.minX) / 2;
-                    const baseY = cBounds.maxY;
+
+                    // Alinha o texto à linha de pauta mais próxima da base do cluster
+                    const rawBaseY = cBounds.maxY;
+                    const baseY = Math.round(rawBaseY / lineHeight) * lineHeight;
 
                     let displayChar = top1.name;
 
@@ -583,9 +742,7 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
                         onGestureEvent(`✨ '${displayChar}' (${(top1.score * 100).toFixed(0)}%)`);
                     }
                     console.log(`[Recognizer] ✅ COMMIT '${displayChar}' score=${(top1.score*100).toFixed(1)}% margin=${(margin*100).toFixed(1)}% stable=${stability.stableCount}`);
-                } else if (meetsScore) {
-                    // Score decente mas estabilidade ou margem insuficiente.
-                    // SEMPRE reagenda pra incrementar stableCount ou esperar timeout.
+                } else if (meetsScore || userMightBeDrawing || needsPatience) {
                     needsReeval = true;
                 }
             }
@@ -649,13 +806,14 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
                                     x: e.clientX,
                                     y: e.clientY - 40,
                                     strokeId: s.id,
+                                    wrongName: s.text ?? '',
                                     alternatives: s.alternatives,
                                     originalStrokes: s.originalStrokes
                                 });
                             }
                         }}
                     >
-                        {s.text}
+                        {aiLoadingStrokes.has(s.id) ? '✨...' : s.text}
                     </text>
                     {/* Micro-partículas de "tinta mágica" durante a transição */}
                     {anim < 0.6 && (
@@ -697,10 +855,10 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
         );
     };
 
-    const handleCorrection = (strokeId: string, newName: string, originalStrokes: Stroke[]) => {
+    const handleCorrection = (strokeId: string, newName: string, originalStrokes: Stroke[], wrongName?: string) => {
         // Envia os strokes brutos originais pro cérebro como um novo template!
         const rawPoints = originalStrokes.map(s => s.points.map(p => ({ x: p[0], y: p[1] })));
-        recognizer.addCustomTemplate(newName, rawPoints);
+        recognizer.addCustomTemplate(newName, rawPoints, wrongName);
         
         // Atualiza a tela
         setStrokes(prev => prev.map(s => {
@@ -795,7 +953,7 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
                                 onMouseOut={e => e.currentTarget.style.background = 'transparent'}
                                 onPointerDown={e => {
                                     e.stopPropagation(); e.preventDefault();
-                                    handleCorrection(correctionPopup.strokeId, alt.name, correctionPopup.originalStrokes);
+                                    handleCorrection(correctionPopup.strokeId, alt.name, correctionPopup.originalStrokes, correctionPopup.wrongName);
                                 }}
                                 title={`Score: ${(alt.score*100).toFixed(1)}%`}
                             >
@@ -815,7 +973,7 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
                             onChange={e => {
                                 const val = e.currentTarget.value.trim();
                                 if (val.length === 1) {
-                                    handleCorrection(correctionPopup.strokeId, val, correctionPopup.originalStrokes);
+                                    handleCorrection(correctionPopup.strokeId, val, correctionPopup.originalStrokes, correctionPopup.wrongName);
                                 }
                             }}
                         />
@@ -825,6 +983,18 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
                             title="Símbolos matemáticos"
                         >
                             ∑
+                        </button>
+                        <button 
+                            style={{ background: 'transparent', border: '1px solid #7a5cd6', color: '#d1a3ff', borderRadius: 4, width: 34, height: 34, fontSize: 16, cursor: 'pointer', transition: 'all 0.1s' }}
+                            onMouseOver={e => e.currentTarget.style.background = '#453163'}
+                            onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                            onPointerDown={e => {
+                                e.stopPropagation(); e.preventDefault();
+                                if (correctionPopup) findSymbolWithAI(correctionPopup.originalStrokes, correctionPopup.strokeId);
+                            }}
+                            title="Procurar símbolo ideal com I.A. (Gemini Vision)"
+                        >
+                            ✨
                         </button>
                         <button 
                             style={{ background: 'transparent', border: 'none', color: '#ff6b6b', cursor: 'pointer', marginLeft: 6, fontSize: 18 }}
@@ -848,7 +1018,7 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
                                     onMouseOut={e => e.currentTarget.style.background = '#222'}
                                     onPointerDown={e => {
                                         e.stopPropagation(); e.preventDefault();
-                                        handleCorrection(correctionPopup.strokeId, sym, correctionPopup.originalStrokes);
+                                        handleCorrection(correctionPopup.strokeId, sym, correctionPopup.originalStrokes, correctionPopup.wrongName);
                                     }}
                                 >
                                     {sym}

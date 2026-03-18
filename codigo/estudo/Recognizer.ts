@@ -25,7 +25,7 @@ export interface Result {
     score: number;
 }
 
-const NUM_POINTS = 32;
+const NUM_POINTS = 48;
 
 // ── HELPERS GEOMÉTRICOS ─────────────────────────────────────────
 
@@ -78,10 +78,15 @@ interface TemplateEntry {
     strokeCount: number;
     bboxDiag: number;   // diagonal da bounding box antes de normalizar (0 = ponto)
     isTiny: boolean;    // template "pontual" (., , etc) que não deve matchear inputs grandes
+    aspectRatio: number; // width/height (>1 = largo, <1 = alto)
+    isCustom: boolean;   // template do usuário via correção (few-shot)
+    useCount: number;    // quantas vezes este template foi usado em reconhecimento correto
 }
 
 export class PointCloudRecognizer {
     templates: TemplateEntry[] = [];
+    // Mapa de correções: "char_errado" → Set<"char_correto"> — para penalizar falsos positivos
+    private correctionHistory: Map<string, Map<string, number>> = new Map();
 
     constructor() {
         if (typeof window !== 'undefined') {
@@ -89,37 +94,104 @@ export class PointCloudRecognizer {
         }
     }
 
-    addCustomTemplate(name: string, strokes: { x: number; y: number }[][]) {
+    /** Registra que o usuário corrigiu `wrongName` para `correctName` */
+    recordCorrection(wrongName: string, correctName: string) {
+        if (wrongName === correctName) return;
+        const corrections = this.correctionHistory.get(wrongName) ?? new Map<string, number>();
+        corrections.set(correctName, (corrections.get(correctName) ?? 0) + 1);
+        this.correctionHistory.set(wrongName, corrections);
+    }
+
+    /** Quantos templates custom o usuário tem para este caractere */
+    customCountFor(name: string): number {
+        return this.templates.filter(t => t.isCustom && t.name === name).length;
+    }
+
+    addCustomTemplate(name: string, strokes: { x: number; y: number }[][], wrongName?: string) {
+        const MAX_CUSTOM_PER_CHAR = 8; // Aumentado para mais memória
+
+        // Registra a correção se houve erro anterior
+        if (wrongName && wrongName !== name) {
+            this.recordCorrection(wrongName, name);
+        }
+
         let points: Point2D[] = [];
         strokes.forEach((stroke, i) => {
             stroke.forEach(p => points.push({ x: p.x, y: p.y, strokeId: i }));
         });
-        
-        // Calcula diagonal antes de normalizar
+
+        // Calcula diagonal e aspect ratio antes de normalizar
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         for (const p of points) {
             minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
             minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
         }
         const bboxDiag = Math.sqrt((maxX - minX) ** 2 + (maxY - minY) ** 2);
-        
+        const width = maxX - minX;
+        const height = maxY - minY;
+        const aspectRatio = height > 0.001 ? width / height : 1;
+
         points = this.normalize(points);
-        
-        this.templates.push({ 
-            name, 
-            points, 
-            strokeCount: strokes.length, 
-            bboxDiag, 
-            isTiny: bboxDiag < 0.2 // heurística simples pra custom 
+
+        // Dedup: remove templates custom antigos do mesmo caractere se já atingiu o limite
+        // Em vez de FIFO puro, remove o que tem menor useCount (menos útil)
+        const existingCustom = this.templates
+            .map((t, idx) => ({ t, idx }))
+            .filter(({ t }) => t.isCustom && t.name === name);
+
+        if (existingCustom.length >= MAX_CUSTOM_PER_CHAR) {
+            // Remove o template com menor useCount (o menos confirmado pelo uso)
+            const leastUsed = existingCustom.reduce((min, cur) =>
+                cur.t.useCount < min.t.useCount ? cur : min
+            );
+            this.templates.splice(leastUsed.idx, 1);
+        }
+
+        this.templates.push({
+            name,
+            points,
+            strokeCount: strokes.length,
+            bboxDiag,
+            isTiny: bboxDiag < 0.2,
+            aspectRatio,
+            isCustom: true,
+            useCount: 0,
         });
 
         // Salvar local no profile do usuário
         try {
             const raw = localStorage.getItem('smartcanvas_custom') || '[]';
-            const saved = JSON.parse(raw);
-            saved.push({ name, strokes }); // Salvamos os strokes originais pra poderem ser lidos de novo depois
-            localStorage.setItem('smartcanvas_custom', JSON.stringify(saved));
-            console.log(`[Recognizer] Aprendizado salvo: Nova variante para '${name}'.`);
+            let saved = JSON.parse(raw);
+            saved.push({ name, strokes });
+            // Limitar a MAX_CUSTOM_PER_CHAR por caractere no storage também
+            const countMap = new Map<string, number>();
+            saved = saved.filter((item: { name: string }) => {
+                const count = (countMap.get(item.name) ?? 0) + 1;
+                countMap.set(item.name, count);
+                // Mantém os últimos MAX_CUSTOM_PER_CHAR de cada caractere
+                return true;
+            });
+            // Trim: para cada name, manter só os últimos N
+            const byName = new Map<string, typeof saved>();
+            for (const item of saved) {
+                const arr = byName.get(item.name) ?? [];
+                arr.push(item);
+                byName.set(item.name, arr);
+            }
+            const trimmed: typeof saved = [];
+            for (const arr of byName.values()) {
+                trimmed.push(...arr.slice(-MAX_CUSTOM_PER_CHAR));
+            }
+            localStorage.setItem('smartcanvas_custom', JSON.stringify(trimmed));
+
+            // Persiste o histórico de correções também
+            const corrObj: Record<string, Record<string, number>> = {};
+            for (const [wrong, corrections] of this.correctionHistory) {
+                corrObj[wrong] = Object.fromEntries(corrections);
+            }
+            localStorage.setItem('smartcanvas_corrections', JSON.stringify(corrObj));
+
+            console.log(`[Recognizer] Aprendizado salvo: Nova variante para '${name}' (${existingCustom.length + 1} custom).`);
         } catch (e) {
             console.error(e);
         }
@@ -131,10 +203,19 @@ export class PointCloudRecognizer {
             if (!raw) return;
             const saved = JSON.parse(raw);
             for (const item of saved) {
-                this.addTemplate(item.name, item.strokes, false); 
+                this.addTemplate(item.name, item.strokes, false);
             }
             if (saved.length > 0) {
                 console.log(`[Recognizer] Carregados ${saved.length} templates personalizados do usuário (localStorage).`);
+            }
+
+            // Carrega histórico de correções
+            const corrRaw = localStorage.getItem('smartcanvas_corrections');
+            if (corrRaw) {
+                const corrObj = JSON.parse(corrRaw) as Record<string, Record<string, number>>;
+                for (const [wrong, corrections] of Object.entries(corrObj)) {
+                    this.correctionHistory.set(wrong, new Map(Object.entries(corrections).map(([k, v]) => [k, v as number])));
+                }
             }
         } catch (e) {
             console.error('Falha ao carregar templates', e);
@@ -146,15 +227,18 @@ export class PointCloudRecognizer {
         strokes.forEach((stroke, i) => {
             stroke.forEach(p => points.push({ x: p.x, y: p.y, strokeId: i }));
         });
-        // Calcula diagonal antes de normalizar
+        // Calcula diagonal e aspect ratio antes de normalizar
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         for (const p of points) {
             minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
             minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
         }
         const bboxDiag = Math.sqrt((maxX - minX) ** 2 + (maxY - minY) ** 2);
+        const width = maxX - minX;
+        const height = maxY - minY;
+        const aspectRatio = height > 0.001 ? width / height : 1;
         points = this.normalize(points);
-        this.templates.push({ name, points, strokeCount: strokes.length, bboxDiag, isTiny: tiny });
+        this.templates.push({ name, points, strokeCount: strokes.length, bboxDiag, isTiny: tiny, aspectRatio, isCustom: false, useCount: 0 });
     }
 
     private resample(points: Point2D[], n: number): Point2D[] {
@@ -266,9 +350,8 @@ export class PointCloudRecognizer {
                 matched[index] = true;
                 sum += min;
             }
-            i = (i + 1) % pts1.length;
             cnt++;
-        } while (cnt < pts1.length);
+        }
         return sum;
     }
 
@@ -352,11 +435,16 @@ export class PointCloudRecognizer {
         }
         const inputDiag = Math.sqrt((maxX - minX) ** 2 + (maxY - minY) ** 2);
         const inputStrokeCount = strokes.length;
+        const inputWidth = maxX - minX;
+        const inputHeight = maxY - minY;
+        const inputAR = inputHeight > 0.001 ? inputWidth / inputHeight : 1;
 
         points = this.normalize(points);
 
         // Map: nome → melhor score (pega o melhor dentre as variantes)
         const bestPerName = new Map<string, number>();
+        // Map: nome → lista de scores dos templates custom (para nearest-neighbor voting)
+        const customScoresPerName = new Map<string, number[]>();
 
         let evalCount = 0;
         for (const template of this.templates) {
@@ -368,29 +456,59 @@ export class PointCloudRecognizer {
 
             evalCount++;
             const sumDistance = this.greedyCloudMatch(points, template.points);
-            
-            // Corrige o erro matemático fatal: divide pela quantidade de pontos 
-            // para ter a média de distância entre 0.0 e ~1.4 (diagonal do quadrado 1x1)
-            const d = sumDistance / NUM_POINTS; 
-            
-            // Score formula: (1.0 - d / sqrt(2)), já que max dist num quadrado 1x1 é 1.414
-            // Vamos usar apenas 1.0 - d pois d > 1 já é completamente irreconhecível
+
+            const d = sumDistance / NUM_POINTS;
             let score = Math.max(1.0 - d, 0.0);
-            
-            // PENALIDADE CRÍTICA DE TRAÇOS (Stroke Count Penalty)
-            // O algoritmo $P não liga pra conexão, então "t" (2 traços) e "r" (1 traço) têm 
-            // uma nuvem de pontos muito parecida. Nós penalizamos em -15% CADA
-            // traço de diferença entre a tentativa do usuário e o template!
+
+            // PENALIDADE DE TRAÇOS
             const strokeDiff = Math.abs(template.strokeCount - inputStrokeCount);
             if (strokeDiff > 0) {
-                // Penaliza levemente a diferença de traços. Reduzido de 15% para 8%
-                // pois desenhar números/letras de múltiplos traços sem tirar a caneta
-                // (desenho contínuo/cursivo) não deve anular a chance de reconhecimento.
-                score *= Math.max(1.0 - (strokeDiff * 0.08), 0.7); 
+                score *= Math.max(1.0 - (strokeDiff * 0.08), 0.7);
             }
-            
+
+            // PENALIDADE DE ASPECT RATIO
+            const arDiff = Math.abs(Math.log((inputAR + 0.01) / (template.aspectRatio + 0.01)));
+            if (arDiff > 0.4) {
+                score *= Math.max(1.0 - (arDiff - 0.4) * 0.25, 0.55);
+            }
+
+            // Rastreia scores dos templates custom separadamente para voting
+            if (template.isCustom) {
+                const list = customScoresPerName.get(template.name) ?? [];
+                list.push(score);
+                customScoresPerName.set(template.name, list);
+            }
+
             const prev = bestPerName.get(template.name) ?? 0;
             if (score > prev) bestPerName.set(template.name, score);
+        }
+
+        // ── FEW-SHOT NEAREST-NEIGHBOR VOTING ──────────────────────────────
+        // Para cada caractere que tem templates custom, calcula um "voto ponderado"
+        // que reflete o quão parecido o input é com os exemplos do usuário.
+        // O boost é proporcional à quantidade de exemplos E à qualidade do match.
+        for (const [name, customScores] of customScoresPerName) {
+            if (customScores.length === 0) continue;
+
+            // Top-2 scores dos templates custom deste caractere
+            const sortedScores = [...customScores].sort((a, b) => b - a);
+            const topScore = sortedScores[0];
+            const secondScore = sortedScores[1] ?? 0;
+
+            // Voto: média ponderada dos 2 melhores (o melhor vale mais)
+            const votedScore = topScore * 0.7 + secondScore * 0.3;
+
+            // Boost dinâmico: escala de 1.10 (1 exemplo) até 1.40 (8+ exemplos)
+            const n = customScores.length;
+            const boostFactor = Math.min(1.10 + (n - 1) * 0.04, 1.40);
+
+            const boosted = votedScore * boostFactor;
+
+            // Só substitui se o voto boosted for melhor que o melhor template base
+            const current = bestPerName.get(name) ?? 0;
+            if (boosted > current) {
+                bestPerName.set(name, boosted);
+            }
         }
 
         const results: Result[] = [];
@@ -409,6 +527,18 @@ export class PointCloudRecognizer {
             if (feature.isTopCross !== null) {
                 if (feature.isTopCross && res.name === '+') res.score *= 0.6; // "+" não cruza no topo
                 if (!feature.isTopCross && (res.name === 'T' || res.name === 't')) res.score *= 0.7; // T cruza no topo
+            }
+
+            // PENALIDADE POR HISTÓRICO DE CORREÇÕES:
+            // Se o usuário já corrigiu `res.name` para outro caractere N vezes,
+            // e o resultado com maior voto é diferente, penaliza `res.name`.
+            const corrections = this.correctionHistory.get(res.name);
+            if (corrections && corrections.size > 0) {
+                let totalCorrections = 0;
+                for (const count of corrections.values()) totalCorrections += count;
+                // Penalidade proporcional: até -25% com 5+ correções
+                const penalty = Math.min(totalCorrections * 0.05, 0.25);
+                res.score *= (1 - penalty);
             }
         }
 
@@ -886,6 +1016,136 @@ add('u',
 // x (minúsculo) — same as X
 add('x',
     [line(0.2, 0.35, 0.8, 1), line(0.8, 0.35, 0.2, 1)],
+);
+
+// ══════════════════════════════════════════════════════════════════
+// LETRAS MINÚSCULAS QUE FALTAVAM (f, g, h, j, k, l, m, p, q, v, w, y, z)
+// ══════════════════════════════════════════════════════════════════
+
+// f (minúsculo) — gancho no topo + haste + cruzeta
+add('f',
+    // 2 strokes: haste curvada + barra horizontal
+    [[...arc(0.6, 0.15, 0.15, 0.15, -Math.PI * 0.8, 0, 6), { x: 0.45, y: 0.15 }, { x: 0.45, y: 1 }], line(0.25, 0.45, 0.7, 0.45)],
+    // 1 stroke cursivo: gancho → desce → para
+    [[{ x: 0.7, y: 0.1 }, { x: 0.55, y: 0 }, { x: 0.4, y: 0.1 }, { x: 0.4, y: 1 }], line(0.2, 0.4, 0.65, 0.4)],
+);
+
+// g (minúsculo) — círculo + descender curvando à esquerda
+add('g',
+    [[...ellipse(0.5, 0.45, 0.3, 0.28, 14).reverse(), { x: 0.8, y: 0.45 }, { x: 0.8, y: 0.85 }, ...arc(0.55, 0.85, 0.25, 0.15, 0, Math.PI * 0.8, 6)]],
+    // variante 2 strokes: círculo + haste descende
+    [ellipse(0.5, 0.45, 0.3, 0.28, 14).reverse(), [{ x: 0.8, y: 0.2 }, { x: 0.8, y: 0.9 }, { x: 0.55, y: 1 }, { x: 0.3, y: 0.9 }]],
+);
+
+// h (minúsculo) — haste alta + bump à direita (como n mas mais alto)
+add('h',
+    [[{ x: 0.2, y: 0 }, { x: 0.2, y: 1 }, { x: 0.2, y: 0.45 }, ...arc(0.5, 0.5, 0.3, 0.25, Math.PI, 0, 8), { x: 0.8, y: 1 }]],
+    // 2 strokes
+    [line(0.2, 0, 0.2, 1), [{ x: 0.2, y: 0.45 }, ...arc(0.5, 0.5, 0.3, 0.25, Math.PI, 0, 8), { x: 0.8, y: 1 }]],
+);
+
+// j (minúsculo) — ponto + haste descende curvando à esquerda
+add('j',
+    [line(0.5, 0.35, 0.5, 0.85), ellipse(0.5, 0.12, 0.04, 0.04, 6)],
+    [[{ x: 0.5, y: 0.35 }, { x: 0.5, y: 0.9 }, { x: 0.35, y: 1 }, { x: 0.2, y: 0.95 }], ellipse(0.5, 0.12, 0.04, 0.04, 6)],
+);
+
+// k (minúsculo) — haste + seta
+add('k',
+    [line(0.25, 0, 0.25, 1), [{ x: 0.75, y: 0.35 }, { x: 0.25, y: 0.6 }, { x: 0.75, y: 1 }]],
+    // 1 stroke contínuo
+    [[{ x: 0.25, y: 0 }, { x: 0.25, y: 1 }, { x: 0.25, y: 0.6 }, { x: 0.7, y: 0.35 }, { x: 0.25, y: 0.6 }, { x: 0.7, y: 1 }]],
+);
+
+// l (minúsculo) — linha vertical (distinguir de I/1 via aspect ratio + contexto)
+add('l',
+    [line(0.5, 0, 0.5, 1)],
+    // variante com serifinha na base
+    [[{ x: 0.5, y: 0 }, { x: 0.5, y: 0.95 }, { x: 0.65, y: 1 }]],
+);
+
+// m (minúsculo) — dois bumps
+add('m',
+    [[{ x: 0.1, y: 1 }, { x: 0.1, y: 0.4 },
+      ...arc(0.3, 0.5, 0.2, 0.2, Math.PI, 0, 6), { x: 0.5, y: 0.7 },
+      ...arc(0.7, 0.5, 0.2, 0.2, Math.PI, 0, 6), { x: 0.9, y: 1 }]],
+    // variante pontiaguda
+    [[{ x: 0.1, y: 1 }, { x: 0.1, y: 0.4 }, { x: 0.35, y: 0.4 }, { x: 0.5, y: 0.7 }, { x: 0.65, y: 0.4 }, { x: 0.9, y: 0.4 }, { x: 0.9, y: 1 }]],
+);
+
+// p (minúsculo) — haste desce + círculo no topo direito
+add('p',
+    [line(0.2, 0.3, 0.2, 1), [...ellipse(0.52, 0.5, 0.3, 0.25, 14)]],
+    // 1 stroke: desce e volta pra fazer o bump
+    [[{ x: 0.2, y: 0.3 }, { x: 0.2, y: 1 }, { x: 0.2, y: 0.3 }, ...arc(0.5, 0.45, 0.3, 0.25, -Math.PI / 2, Math.PI / 2, 10), { x: 0.2, y: 0.7 }]],
+);
+
+// q (minúsculo) — círculo + haste descende à direita
+add('q',
+    [[...ellipse(0.48, 0.5, 0.3, 0.25, 14).reverse()], line(0.78, 0.3, 0.78, 1)],
+    // 1 stroke
+    [[...ellipse(0.48, 0.5, 0.3, 0.25, 14).reverse(), { x: 0.78, y: 0.5 }, { x: 0.78, y: 1 }]],
+);
+
+// v (minúsculo) — idêntico a V
+add('v',
+    [[{ x: 0.15, y: 0.35 }, { x: 0.5, y: 1 }, { x: 0.85, y: 0.35 }]],
+);
+
+// w (minúsculo) — idêntico a W
+add('w',
+    [[{ x: 0.05, y: 0.35 }, { x: 0.25, y: 1 }, { x: 0.5, y: 0.55 }, { x: 0.75, y: 1 }, { x: 0.95, y: 0.35 }]],
+);
+
+// y (minúsculo) — V + descender
+add('y',
+    [[{ x: 0.15, y: 0.35 }, { x: 0.5, y: 0.75 }], [{ x: 0.85, y: 0.35 }, { x: 0.5, y: 0.75 }, { x: 0.3, y: 1 }]],
+    // 1 stroke
+    [[{ x: 0.15, y: 0.35 }, { x: 0.5, y: 0.75 }, { x: 0.85, y: 0.35 }, { x: 0.5, y: 0.75 }, { x: 0.3, y: 1 }]],
+);
+
+// z (minúsculo) — idêntico a Z
+add('z',
+    [[{ x: 0.2, y: 0.35 }, { x: 0.8, y: 0.35 }, { x: 0.2, y: 1 }, { x: 0.8, y: 1 }]],
+);
+
+// ══════════════════════════════════════════════════════════════════
+// VARIANTES EXTRAS (caracteres mais confundidos)
+// ══════════════════════════════════════════════════════════════════
+
+// 0 vs O — variante oval mais alta para '0'
+add('0',
+    [ellipse(0.5, 0.5, 0.3, 0.5)],  // mais alto que largo
+    [ellipse(0.5, 0.5, 0.3, 0.5).reverse()],
+);
+
+// a — variante de "a" impresso (dois andares)
+add('a',
+    // "a" de dois andares: arco em cima + barriga em baixo + haste
+    [[{ x: 0.7, y: 0.35 }, { x: 0.5, y: 0.35 }, ...arc(0.5, 0.55, 0.3, 0.25, Math.PI * 1.5, Math.PI * 0.5, 10), { x: 0.8, y: 0.55 }, { x: 0.8, y: 1 }]],
+);
+
+// n — variante angular (sem curva)
+add('n',
+    [[{ x: 0.2, y: 1 }, { x: 0.2, y: 0.4 }, { x: 0.8, y: 0.4 }, { x: 0.8, y: 1 }]],
+);
+
+// u — variante angular
+add('u',
+    [[{ x: 0.2, y: 0.35 }, { x: 0.2, y: 0.85 }, { x: 0.8, y: 0.85 }, { x: 0.8, y: 0.35 }]],
+);
+
+// 2 — variante cursiva (sem base reta)
+add('2',
+    [[
+        { x: 0.2, y: 0.25 }, { x: 0.5, y: 0.05 }, { x: 0.8, y: 0.25 },
+        { x: 0.2, y: 0.95 }, { x: 0.8, y: 0.95 },
+    ]],
+);
+
+// 7 — variante com barra horizontal
+add('7',
+    [[{ x: 0.15, y: 0 }, { x: 0.85, y: 0 }, { x: 0.45, y: 1 }], line(0.35, 0.5, 0.7, 0.5)],
 );
 
 console.log(`[Recognizer] ${recognizer.templates.length} templates carregados`);

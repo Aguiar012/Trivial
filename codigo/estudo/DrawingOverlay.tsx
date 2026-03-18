@@ -112,14 +112,15 @@ export function DrawingOverlay({ isVisible, title, onConfirm, onCancel }: Drawin
                     
                     <div style={separatorStyle} />
                     
-                    <button 
-                        onClick={handleToggleErase} 
+                    <button
+                        onClick={handleToggleErase}
                         style={{
-                            ...iconButtonStyle, 
+                            ...iconButtonStyle,
                             backgroundColor: eraseMode ? '#a34c4c' : 'transparent',
                             borderRadius: '50%',
-                            width: '32px',
-                            height: '32px'
+                            width: '44px',
+                            height: '44px',
+                            fontSize: '20px',
                         }}
                         title={eraseMode ? 'Modo Caneta' : 'Modo Borracha'}
                     >
