@@ -410,6 +410,10 @@ function Lapis({ onClick }: { onClick: () => void }) {
             onPointerOver={() => { setHover(true); document.body.style.cursor = 'pointer' }}
             onPointerOut={() => { setHover(false); document.body.style.cursor = 'auto' }}
         >
+            {/* Hitbox invisível — muito maior que o lápis para facilitar o clique */}
+            <mesh visible={false}>
+                <cylinderGeometry args={[0.18, 0.18, 1.1, 8]} />
+            </mesh>
             {/* Corpo hexagonal */}
             <Cylinder args={[0.032, 0.032, 0.9, 6]} castShadow>
                 <meshStandardMaterial
