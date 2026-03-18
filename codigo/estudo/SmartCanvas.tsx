@@ -297,25 +297,42 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
             const offX = PADDING + (size - w) / 2 * scale;
             const offY = PADDING + (size - h) / 2 * scale;
 
-            // Linha mais grossa e suavizada para que a IA enxergue bem
-            ctx.lineWidth = Math.max(6, Math.min(12, scale * 3));
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.strokeStyle = '#111';
-
+            // Desenha cada stroke usando perfect-freehand (mesmo algoritmo do SVG)
+            // para que a imagem enviada à IA seja idêntica ao que aparece na tela
+            ctx.fillStyle = '#111';
             strokesToFind.forEach(s => {
                 const pts = s.points;
                 if (pts.length === 0) return;
-                ctx.beginPath();
-                pts.forEach((p, i) => {
+
+                // Transforma para coordenadas do canvas de exportação
+                const scaled = pts.map(p => {
                     const px = Array.isArray(p) ? p[0] : (p as any).x;
                     const py = Array.isArray(p) ? p[1] : (p as any).y;
-                    const cx = offX + (px - minX) * scale;
-                    const cy = offY + (py - minY) * scale;
-                    if (i === 0) ctx.moveTo(cx, cy);
-                    else ctx.lineTo(cx, cy);
+                    const pr = Array.isArray(p) ? (p[2] ?? 0.5) : 0.5;
+                    return [offX + (px - minX) * scale, offY + (py - minY) * scale, pr] as [number, number, number];
                 });
-                ctx.stroke();
+
+                const strokeSize = Math.max(8, Math.min(18, scale * 4));
+                const outline = getStroke(scaled, {
+                    size: strokeSize,
+                    thinning: 0.6,
+                    smoothing: 0.5,
+                    streamline: 0.6,
+                    easing: (t) => t,
+                    simulatePressure: false,
+                });
+
+                if (outline.length === 0) return;
+                // Desenha o path suavizado (mesmo algoritmo do getSvgPathFromStroke)
+                ctx.beginPath();
+                const [first, ...rest] = outline;
+                ctx.moveTo(first[0], first[1]);
+                rest.forEach(([x0, y0], i, arr) => {
+                    const [x1, y1] = arr[(i + 1) % arr.length];
+                    ctx.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
+                });
+                ctx.closePath();
+                ctx.fill();
             });
 
             const dataUrl = canvas.toDataURL('image/png');
