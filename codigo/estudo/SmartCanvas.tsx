@@ -889,32 +889,34 @@ Return ONLY the single unicode character (or 2 chars max). No explanation, no ma
                 // "Patience mode": caractere de 1-stroke que pode ser início de multi-stroke
                 const needsPatience = cluster.length === 1 && PATIENCE_CHARS.has(top1.name) && !timedOut;
 
-                // "Lookahead": só comita este cluster se já existir tinta claramente
-                // separada à direita dele — significa que o usuário já começou a próxima letra.
-                // O gap mínimo deve ser maior que clusterTolerance para garantir que
-                // o stroke à direita NÃO é parte do mesmo caractere.
+                // "Lookahead": se já há tinta claramente separada à direita,
+                // podemos comitar mais cedo (sem esperar maxWaitMs).
+                // Não é condição obrigatória — apenas um acelerador.
                 const clusterIds = new Set(cluster.map(s => s.id));
                 const outsideInk = inkStrokes.filter(s => !clusterIds.has(s.id));
-                const minGap = COMMIT_CONFIG.clusterTolerance * 2 + COMMIT_CONFIG.lookaheadMinGapX;
+                // Gap mínimo = clusterTolerance + 4px (garante que não é traço do mesmo char)
+                const minGap = COMMIT_CONFIG.clusterTolerance + 4;
                 const hasNextChar = outsideInk.some(s => {
                     const b = getBounds(s.points);
-                    // Stroke claramente à direita E fora do alcance de clustering
                     return b.minX > cBounds.maxX + minGap;
                 });
 
-                // Commit antecipado (sem lookahead) só se timedOut
+                // Commit se:
+                // 1. timedOut (maxWaitMs expirou) — sempre comita
+                // 2. Score/margem/estabilidade ok + não está no gap inter-stroke
+                //    + (patience mode satisfeito ou há próxima letra confirmada)
+                const baseConditions = meetsScore && marginOk && isStable && !userMightBeDrawing;
                 const shouldCommit = timedOut
                     ? meetsScore
-                    : hasNextChar && !userMightBeDrawing && !needsPatience && meetsScore && marginOk && isStable;
+                    : baseConditions && (!needsPatience || hasNextChar);
 
                 if (!shouldCommit && meetsScore) {
                     const reasons = [];
                     if (!marginOk && !timedOut) reasons.push(`margin too low (<${(COMMIT_CONFIG.minMargin*100).toFixed(0)}%)`);
                     if (!isStable && !timedOut) reasons.push(`waiting for stability (${stability.stableCount}/${COMMIT_CONFIG.requiredStableCount})`);
-                    if (needsPatience) reasons.push(`patience (1-stroke: '${top1.name}')`);
+                    if (needsPatience && !hasNextChar && !timedOut) reasons.push(`patience — waiting for next char`);
                     if (userMightBeDrawing) reasons.push(`inter-stroke gap`);
-                    if (!hasNextChar && !timedOut) reasons.push(`lookahead: no next char yet`);
-                    console.log(`[Recognizer] ⏳ Waiting... top1: '${top1.name}' (${(top1.score * 100).toFixed(1)}%). Reasons: ${reasons.join(', ')}`);
+                    console.log(`[Recognizer] ⏳ top1:'${top1.name}' (${(top1.score*100).toFixed(1)}%) | ${reasons.join(', ')}`);
                 }
 
                 if (shouldCommit) {
