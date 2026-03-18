@@ -147,13 +147,17 @@ const COMMIT_CONFIG = {
     /** Tolerância de proximidade para clustering de strokes (px) */
     clusterTolerance: 15,
     /** Tempo máximo (ms) que strokes ficam sem commit antes de forçar (se score ok) */
-    maxWaitMs: 1200,
+    maxWaitMs: 2000,
     /**
      * Gap mínimo (ms) desde o último pointerUp para permitir commit.
-     * Evita comitar o 1º traço de um caractere multi-traço enquanto o usuário
-     * ainda está desenhando o 2º traço (ex: pingo do 'i', barra do '+', topo do 't').
      */
     interStrokeGapMs: 380,
+    /**
+     * Distância mínima em X (px) entre a borda direita do cluster atual e
+     * a borda esquerda de qualquer outro stroke de tinta para considerar que
+     * o usuário já começou a próxima letra ("lookahead confirmado").
+     */
+    lookaheadMinGapX: 8,
 };
 
 // Caracteres que visualmente são quase impossíveis de diferenciar em manuscrito
@@ -766,23 +770,33 @@ Return ONLY the single unicode character (or 2 chars max). No explanation, no ma
 
                 const timedOut = meetsScore && (firstEvalAge > COMMIT_CONFIG.maxWaitMs || isVeryStable);
 
-                // "Patience mode": se top1 é um caractere de 1-stroke que pode ser
-                // o início de um caractere multi-stroke (ex: 'l' → 't', '-' → '='),
-                // E o cluster ainda tem só 1 stroke, esperamos maxWaitMs inteiros.
+                // "Patience mode": caractere de 1-stroke que pode ser início de multi-stroke
                 const needsPatience = cluster.length === 1 && PATIENCE_CHARS.has(top1.name) && !timedOut;
 
-                // Bloqueia commit se o usuário acabou de terminar um traço recentemente,
-                // ou se estamos em patience mode. timedOut sempre desbloqueaa.
-                const shouldCommit = !timedOut
-                    ? !userMightBeDrawing && !needsPatience && meetsScore && marginOk && isStable
-                    : meetsScore;
+                // "Lookahead": só comita este cluster se já existir tinta claramente
+                // separada à direita dele — significa que o usuário já começou a próxima letra.
+                // Isso resolve f, t, B, etc. onde o usuário precisa levantar a caneta
+                // entre traços mas ainda está dentro do mesmo caractere.
+                const clusterIds = new Set(cluster.map(s => s.id));
+                const outsideInk = inkStrokes.filter(s => !clusterIds.has(s.id));
+                const hasNextChar = outsideInk.some(s => {
+                    const b = getBounds(s.points);
+                    // Stroke claramente à direita do cluster (não apenas próximo)
+                    return b.minX > cBounds.maxX + COMMIT_CONFIG.lookaheadMinGapX;
+                });
+
+                // Commit antecipado (sem lookahead) só se timedOut
+                const shouldCommit = timedOut
+                    ? meetsScore
+                    : hasNextChar && !userMightBeDrawing && !needsPatience && meetsScore && marginOk && isStable;
 
                 if (!shouldCommit && meetsScore) {
                     const reasons = [];
                     if (!marginOk && !timedOut) reasons.push(`margin too low (<${(COMMIT_CONFIG.minMargin*100).toFixed(0)}%)`);
                     if (!isStable && !timedOut) reasons.push(`waiting for stability (${stability.stableCount}/${COMMIT_CONFIG.requiredStableCount})`);
-                    if (needsPatience) reasons.push(`patience (1-stroke ambiguous: '${top1.name}')`);
+                    if (needsPatience) reasons.push(`patience (1-stroke: '${top1.name}')`);
                     if (userMightBeDrawing) reasons.push(`inter-stroke gap`);
+                    if (!hasNextChar && !timedOut) reasons.push(`lookahead: no next char yet`);
                     console.log(`[Recognizer] ⏳ Waiting... top1: '${top1.name}' (${(top1.score * 100).toFixed(1)}%). Reasons: ${reasons.join(', ')}`);
                 }
 
