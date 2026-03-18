@@ -270,78 +270,143 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
         setAiLoadingStrokes(prev => new Set(prev).add(strokeIdToFix));
         setCorrectionPopup(null);
         try {
-            // Desenhar os traços em um canvas invisível
-            const canvas = document.createElement('canvas'); // Not using react state canvas
-            canvas.width = 120;
-            canvas.height = 120;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, 120, 120);
+            // ── CANVAS MAIOR para melhor qualidade visual ──────────────────
+            const CANVAS_SIZE = 280;
+            const PADDING = 24;
+            const canvas = document.createElement('canvas');
+            canvas.width = CANVAS_SIZE;
+            canvas.height = CANVAS_SIZE;
+            const ctx = canvas.getContext('2d')!;
 
-            // Calcular a bounding box real dos strokes
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+            // Bounding box real dos strokes
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             strokesToFind.forEach(s => s.points.forEach(p => {
                 const px = Array.isArray(p) ? p[0] : (p as any).x;
                 const py = Array.isArray(p) ? p[1] : (p as any).y;
-                if (px < minX) minX = px;
-                if (py < minY) minY = py;
-                if (px > maxX) maxX = px;
-                if (py > maxY) maxY = py;
+                if (px < minX) minX = px; if (py < minY) minY = py;
+                if (px > maxX) maxX = px; if (py > maxY) maxY = py;
             }));
-            const width = maxX - minX;
-            const height = maxY - minY;
-            const size = Math.max(width, height) || 1;
-            const padding = 10;
-            const scale = (120 - padding * 2) / size;
 
-            ctx.lineWidth = 4;
+            const w = maxX - minX || 1;
+            const h = maxY - minY || 1;
+            const size = Math.max(w, h);
+            const scale = (CANVAS_SIZE - PADDING * 2) / size;
+            const offX = PADDING + (size - w) / 2 * scale;
+            const offY = PADDING + (size - h) / 2 * scale;
+
+            // Linha mais grossa e suavizada para que a IA enxergue bem
+            ctx.lineWidth = Math.max(6, Math.min(12, scale * 3));
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            ctx.strokeStyle = 'black';
+            ctx.strokeStyle = '#111';
 
             strokesToFind.forEach(s => {
+                const pts = s.points;
+                if (pts.length === 0) return;
                 ctx.beginPath();
-                s.points.forEach((p, i) => {
+                pts.forEach((p, i) => {
                     const px = Array.isArray(p) ? p[0] : (p as any).x;
                     const py = Array.isArray(p) ? p[1] : (p as any).y;
-                    const cx = padding + (px - minX + (size - width) / 2) * scale;
-                    const cy = padding + (py - minY + (size - height) / 2) * scale;
+                    const cx = offX + (px - minX) * scale;
+                    const cy = offY + (py - minY) * scale;
                     if (i === 0) ctx.moveTo(cx, cy);
                     else ctx.lineTo(cx, cy);
                 });
                 ctx.stroke();
             });
 
-            const base64 = canvas.toDataURL('image/jpeg').split(',')[1];
+            const dataUrl = canvas.toDataURL('image/png');
+            const base64 = dataUrl.split(',')[1];
+
+            // ── DEBUG VISUAL: abre painel com a imagem enviada ────────────
+            const debugPanel = document.createElement('div');
+            debugPanel.id = 'ai-debug-panel';
+            debugPanel.style.cssText = `
+                position:fixed; bottom:16px; right:16px; z-index:99999;
+                background:#1a1a2e; color:#eee; font-family:monospace; font-size:12px;
+                border-radius:12px; padding:14px; box-shadow:0 4px 24px rgba(0,0,0,0.6);
+                min-width:220px; max-width:320px;
+            `;
+            const MODEL = 'gemini-2.0-flash-lite';
+            debugPanel.innerHTML = `
+                <div style="font-weight:bold;margin-bottom:8px;color:#a78bfa">✨ Gemini Debug</div>
+                <div style="margin-bottom:6px;opacity:0.7">Modelo: ${MODEL}</div>
+                <div style="margin-bottom:6px;opacity:0.7">Imagem enviada (${CANVAS_SIZE}×${CANVAS_SIZE}px):</div>
+                <img src="${dataUrl}" style="width:100%;border:1px solid #444;border-radius:6px;margin-bottom:8px;image-rendering:pixelated"/>
+                <div id="ai-debug-status" style="color:#fbbf24">⏳ Aguardando resposta...</div>
+            `;
+            // Remove painel anterior se existir
+            document.getElementById('ai-debug-panel')?.remove();
+            document.body.appendChild(debugPanel);
+            // Auto-fecha após 15s
+            setTimeout(() => debugPanel.remove(), 15000);
+
+            console.log('[AI] Enviando para', MODEL, '| Canvas size:', CANVAS_SIZE, '× stroke count:', strokesToFind.length);
+            console.log('[AI] Imagem (data URL):', dataUrl.slice(0, 80) + '...');
+
+            const prompt = `You are a handwriting recognition expert. The image shows a HAND-DRAWN symbol drawn by a student.
+
+Your task: identify what single character or symbol this is. It could be:
+- A math/physics symbol: √ ∛ ∞ ∫ Σ Δ π θ α β γ λ μ ω ∂ ∇ ± × ÷ ≠ ≈ ≤ ≥
+- A Greek letter: α β γ δ ε ζ η θ ι κ λ μ ν ξ π ρ σ τ φ χ ψ ω
+- A Latin letter or digit: A-Z a-z 0-9
+- A punctuation or operator: + - = ( ) [ ] { } ^ % $ # @
+
+Important: this is hand-drawn, so it may look imperfect or sketchy.
+Return ONLY the single unicode character (or 2 chars max). No explanation, no markdown, no quotes.`;
 
             const payload = {
                 contents: [{
                     parts: [
-                        { text: "This is a hand-drawn math symbol, physics symbol, or character. Return ONLY the single exact unicode character it most resembles (e.g. √, ∞, ∫, Σ, α, A, %, 2, ∛, matrix brackets). If it's a known math symbol, return it. No markdown, no explanation, no quotes, just the literal 1-character or 2-character symbol maximum." },
-                        { inlineData: { mimeType: "image/jpeg", data: base64 } }
+                        { text: prompt },
+                        { inlineData: { mimeType: 'image/png', data: base64 } }
                     ]
-                }]
+                }],
+                generationConfig: { temperature: 0.1, maxOutputTokens: 8 }
             };
 
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
+                { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+            );
 
             const data = await res.json();
-            const symbol = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+            const symbol = rawText.trim();
+
+            // ── DEBUG: mostra resposta no painel ──────────────────────────
+            const statusEl = document.getElementById('ai-debug-status');
+            if (statusEl) {
+                if (symbol) {
+                    statusEl.innerHTML = `
+                        <div style="color:#4ade80">✅ Resposta recebida</div>
+                        <div style="font-size:14px;margin-top:4px">Raw: <code style="background:#333;padding:2px 6px;border-radius:4px">${JSON.stringify(rawText)}</code></div>
+                        <div style="font-size:28px;margin-top:8px;text-align:center;letter-spacing:8px">${symbol}</div>
+                        <div style="opacity:0.5;margin-top:4px;font-size:11px">Comprimento: ${symbol.length} char(s)</div>
+                    `;
+                } else {
+                    statusEl.innerHTML = `<div style="color:#f87171">❌ Resposta vazia ou inválida<br><pre style="font-size:10px;overflow:auto">${JSON.stringify(data, null, 2).slice(0, 300)}</pre></div>`;
+                }
+            }
+            console.log('[AI] Resposta raw:', JSON.stringify(rawText));
+            console.log('[AI] JSON completo:', JSON.stringify(data, null, 2));
 
             if (symbol && symbol.length <= 3) {
                 handleCorrection(strokeIdToFix, symbol, strokesToFind);
             } else {
-                alert("A I.A. não conseguiu identificar de forma confiável um símbolo único. Resposta crua: " + symbol);
+                const msg = symbol
+                    ? `IA retornou texto longo demais (${symbol.length} chars): "${symbol}"`
+                    : `IA não retornou símbolo. Resposta completa: ${JSON.stringify(data).slice(0, 200)}`;
+                if (statusEl) statusEl.innerHTML += `<div style="color:#f87171;margin-top:6px">${msg}</div>`;
+                console.warn('[AI]', msg);
             }
         } catch (e) {
-            console.error(e);
-            alert("Erro de conexão ao acionar Gemini API");
+            console.error('[AI] Erro:', e);
+            const statusEl = document.getElementById('ai-debug-status');
+            if (statusEl) statusEl.innerHTML = `<div style="color:#f87171">❌ Erro de rede: ${e}</div>`;
         } finally {
             setAiLoadingStrokes(prev => {
                 const next = new Set(prev);
