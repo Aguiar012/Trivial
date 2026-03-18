@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bench": "npx tsx codigo/estudo/lab/bench.ts",
+    "bench:sweep": "npx tsx codigo/estudo/lab/bench.ts --sweep",
+    "bench:verbose": "npx tsx codigo/estudo/lab/bench.ts --verbose"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

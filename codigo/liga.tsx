@@ -14,9 +14,12 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './visual.css'
 import Tela from './Tela.tsx'
+import { SampleCapture } from './estudo/lab/SampleCapture.tsx'
+
+const isLab = new URLSearchParams(window.location.search).has('lab');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Tela />
+    {isLab ? <SampleCapture /> : <Tela />}
   </StrictMode>,
 )
