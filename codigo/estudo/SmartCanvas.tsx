@@ -24,8 +24,9 @@ export interface Stroke {
     commitTime?: number;     // timestamp do commit (pra animação)
     
     // Treinamento personalizado
-    alternatives?: {name: string, score: number}[]; 
-    originalStrokes?: Stroke[]; 
+    commitScore?: number;        // score do top1 no momento do commit
+    alternatives?: {name: string, score: number}[];
+    originalStrokes?: Stroke[];
 }
 
 // Estado de estabilidade por cluster (para decidir quando "comitar")
@@ -890,14 +891,15 @@ Return ONLY the single unicode character (or 2 chars max). No explanation, no ma
 
                 // "Lookahead": só comita este cluster se já existir tinta claramente
                 // separada à direita dele — significa que o usuário já começou a próxima letra.
-                // Isso resolve f, t, B, etc. onde o usuário precisa levantar a caneta
-                // entre traços mas ainda está dentro do mesmo caractere.
+                // O gap mínimo deve ser maior que clusterTolerance para garantir que
+                // o stroke à direita NÃO é parte do mesmo caractere.
                 const clusterIds = new Set(cluster.map(s => s.id));
                 const outsideInk = inkStrokes.filter(s => !clusterIds.has(s.id));
+                const minGap = COMMIT_CONFIG.clusterTolerance * 2 + COMMIT_CONFIG.lookaheadMinGapX;
                 const hasNextChar = outsideInk.some(s => {
                     const b = getBounds(s.points);
-                    // Stroke claramente à direita do cluster (não apenas próximo)
-                    return b.minX > cBounds.maxX + COMMIT_CONFIG.lookaheadMinGapX;
+                    // Stroke claramente à direita E fora do alcance de clustering
+                    return b.minX > cBounds.maxX + minGap;
                 });
 
                 // Commit antecipado (sem lookahead) só se timedOut
@@ -942,6 +944,7 @@ Return ONLY the single unicode character (or 2 chars max). No explanation, no ma
                         textY: baseY + 2,
                         commitAnim: 0,
                         commitTime: now,
+                        commitScore: top1.score,
                         alternatives,
                         originalStrokes: cluster
                     });
@@ -1067,9 +1070,18 @@ Return ONLY the single unicode character (or 2 chars max). No explanation, no ma
     };
 
     const handleCorrection = (strokeId: string, newName: string, originalStrokes: Stroke[], wrongName?: string) => {
-        // Envia os strokes brutos originais pro cérebro como um novo template!
-        const rawPoints = originalStrokes.map(s => s.points.map(p => ({ x: p[0], y: p[1] })));
-        recognizer.addCustomTemplate(newName, rawPoints, wrongName);
+        // Só adiciona ao few-shot se o desenho tinha qualidade mínima.
+        // Se o score original era muito baixo (< 0.45), o traço era ruído/distorção
+        // e não deve contaminar o banco de templates personalizados.
+        const commitScore = strokes.find(s => s.id === strokeId)?.commitScore ?? 1;
+        const MIN_FEWSHOT_SCORE = 0.45;
+        if (commitScore >= MIN_FEWSHOT_SCORE) {
+            const rawPoints = originalStrokes.map(s => s.points.map(p => ({ x: p[0], y: p[1] })));
+            recognizer.addCustomTemplate(newName, rawPoints, wrongName);
+            console.log(`[FewShot] Adicionado template '${newName}' (score original: ${(commitScore*100).toFixed(0)}%)`);
+        } else {
+            console.warn(`[FewShot] Ignorado '${newName}' — score original muito baixo (${(commitScore*100).toFixed(0)}%), provável ruído`);
+        }
         
         // Atualiza a tela
         setStrokes(prev => prev.map(s => {
