@@ -40,6 +40,7 @@ export function DrawingOverlay({ isVisible, title, onConfirm, onCancel }: Drawin
         canvasRef.current?.setEraseMode(newMode);
     };
 
+    const handleCorrectPhrase = () => canvasRef.current?.correctWithAI();
     const handleUndo = () => canvasRef.current?.undo();
     const handleRedo = () => canvasRef.current?.redo();
     const handleClear = () => canvasRef.current?.clear();
@@ -109,6 +110,11 @@ export function DrawingOverlay({ isVisible, title, onConfirm, onCancel }: Drawin
                     <button onClick={handleUndo} style={iconButtonStyle} title="Desfazer">↺</button>
                     <button onClick={handleRedo} style={iconButtonStyle} title="Refazer">↻</button>
                     <button onClick={handleClear} style={iconButtonStyle} title="Limpar">🗑️</button>
+                    <button
+                        onClick={handleCorrectPhrase}
+                        style={{ ...iconButtonStyle, color: '#c4b5fd', fontSize: '14px', padding: '4px 8px' }}
+                        title="Corrigir frase inteira com IA (contexto)"
+                    >🧠</button>
                     
                     <div style={separatorStyle} />
                     

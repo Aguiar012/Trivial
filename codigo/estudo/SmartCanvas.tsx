@@ -55,6 +55,7 @@ export interface SmartCanvasRef {
     redo: () => void;
     exportSvg: () => string;
     setEraseMode: (mode: boolean) => void;
+    correctWithAI: () => Promise<void>;
 }
 
 interface SmartCanvasProps {
@@ -261,8 +262,122 @@ export const SmartCanvas = forwardRef<SmartCanvasRef, SmartCanvasProps>(({
                 return new XMLSerializer().serializeToString(svgEl);
             }
             return '';
-        }
+        },
+        correctWithAI: () => correctPhraseWithAI(),
     }));
+
+    // ═══════════════════════════════════════════════════════════════
+    // CORREÇÃO CONTEXTUAL DE FRASE COM IA
+    // ═══════════════════════════════════════════════════════════════
+
+    const correctPhraseWithAI = async () => {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) { alert('VITE_GEMINI_API_KEY não configurada no .env'); return; }
+
+        // Pega todos os strokes de texto ordenados por posição X
+        const textStrokes = strokes
+            .filter(s => s.text && s.text.trim())
+            .sort((a, b) => (a.textX ?? 0) - (b.textX ?? 0));
+
+        if (textStrokes.length === 0) { alert('Nenhum texto reconhecido para corrigir.'); return; }
+
+        // Monta a sequência bruta (ex: "p o r q u P S i m")
+        const rawChars = textStrokes.map(s => s.text!);
+        const rawText = rawChars.join(' ');
+
+        console.log('[AI Phrase] Corrigindo frase:', rawText);
+
+        // Feedback visual
+        const panel = document.createElement('div');
+        panel.id = 'ai-phrase-panel';
+        panel.style.cssText = `
+            position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:99999;
+            background:#1a1a2e; color:#eee; font-family:monospace; font-size:13px;
+            border-radius:12px; padding:16px 20px; box-shadow:0 4px 24px rgba(0,0,0,0.6);
+            min-width:300px; max-width:500px; text-align:center;
+        `;
+        panel.innerHTML = `
+            <div style="font-weight:bold;margin-bottom:8px;color:#a78bfa">🧠 Correção Contextual</div>
+            <div style="margin-bottom:8px;opacity:0.7">Reconhecido: <b style="color:#fbbf24">${rawText}</b></div>
+            <div id="phrase-status" style="color:#4ade80">⏳ Consultando Gemini...</div>
+        `;
+        document.getElementById('ai-phrase-panel')?.remove();
+        document.body.appendChild(panel);
+        setTimeout(() => panel.remove(), 12000);
+
+        try {
+            const prompt = `You are correcting handwriting recognition errors. The OCR system recognized these characters (space-separated, one per character):
+
+"${rawText}"
+
+This was hand-written text. Some characters may have been misrecognized due to handwriting imperfections (e.g. 'P' instead of 'E', 'q' instead of 'a', '1' instead of 'l', etc.).
+
+Rules:
+- Return EXACTLY ${rawChars.length} characters, space-separated, in the same order
+- Fix only obvious OCR errors based on context (what word/phrase makes sense)
+- Keep spaces/gaps between words as they are (a gap in the original = a word boundary)
+- If a character looks correct, keep it exactly as-is
+- Only use characters that could plausibly be confused in handwriting
+- Return ONLY the corrected sequence, nothing else. Example format: "p o r q u e S i m"`;
+
+            const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.1, maxOutputTokens: 128 }
+                    })
+                }
+            );
+
+            const data = await res.json();
+            const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+            console.log('[AI Phrase] Resposta raw:', JSON.stringify(raw));
+
+            // Parseia a resposta — esperamos chars separados por espaço
+            const corrected = raw.replace(/^["']|["']$/g, '').split(/\s+/).filter(Boolean);
+
+            const statusEl = document.getElementById('phrase-status');
+
+            if (corrected.length !== rawChars.length) {
+                const msg = `❌ IA retornou ${corrected.length} chars (esperava ${rawChars.length}): "${raw}"`;
+                if (statusEl) statusEl.innerHTML = `<span style="color:#f87171">${msg}</span>`;
+                console.warn('[AI Phrase]', msg);
+                return;
+            }
+
+            // Aplica as correções aos strokes
+            let anyChange = false;
+            const newStrokes = strokes.map(s => {
+                const idx = textStrokes.findIndex(ts => ts.id === s.id);
+                if (idx === -1) return s;
+                const newChar = corrected[idx];
+                if (newChar === s.text) return s;
+                anyChange = true;
+                return { ...s, text: newChar };
+            });
+
+            if (anyChange) {
+                saveHistory(newStrokes);
+                const correctedText = corrected.join(' ');
+                if (statusEl) statusEl.innerHTML = `
+                    <div style="color:#4ade80">✅ Corrigido!</div>
+                    <div style="margin-top:6px">Antes: <span style="color:#fbbf24">${rawText}</span></div>
+                    <div style="margin-top:4px">Depois: <span style="color:#86efac">${correctedText}</span></div>
+                `;
+                if (onGestureEvent) onGestureEvent(`🧠 Frase corrigida pela IA`);
+            } else {
+                if (statusEl) statusEl.innerHTML = `<span style="color:#86efac">✅ Sem erros detectados</span>`;
+            }
+
+        } catch (e) {
+            console.error('[AI Phrase]', e);
+            const statusEl = document.getElementById('phrase-status');
+            if (statusEl) statusEl.innerHTML = `<span style="color:#f87171">❌ Erro: ${e}</span>`;
+        }
+    };
 
     const findSymbolWithAI = async (strokesToFind: Stroke[], strokeIdToFix: string) => {
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
