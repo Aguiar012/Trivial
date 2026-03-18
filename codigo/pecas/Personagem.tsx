@@ -18,7 +18,8 @@
  */
 
 import { useRef, useEffect, useMemo } from 'react'
-import { useGLTF, useAnimations } from '@react-three/drei'
+import { useGLTF, useAnimations, RoundedBox, Float } from '@react-three/drei'
+import type { DyCard } from '../estudo/tipos'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { POSICAO_ESCRIVANINHA, POSICAO_CAMA, POSICAO_DEITADO, CHAO_Y, POSICAO_BANCO_SENTADO } from '../posicoes'
@@ -68,11 +69,17 @@ interface CharacterProps {
     view: 'room' | 'desk' | 'bed' | 'notebook' | 'reading' | 'shelf'
     targetPosition?: THREE.Vector3 | null
     skinColor?: string
+    cartaSegurada?: DyCard | null
+    /** Ref atualizada todo frame com a posição world-space do personagem */
+    positionRef?: React.MutableRefObject<THREE.Vector3>
+    /** Chamado externamente para fazer o personagem tomar um bounce-back */
+    onCollisionBounce?: (pushBackDir: THREE.Vector3, massa: 'heavy' | 'medium' | 'light') => void
 }
 
-export function Personagem({ view, targetPosition, skinColor = '#ffcba4' }: CharacterProps) {
+export function Personagem({ view, targetPosition, skinColor = '#ffcba4', cartaSegurada, positionRef }: CharacterProps) {
     const group = useRef<THREE.Group>(null)
     const lineRef = useRef<THREE.Line>(null)
+
 
     // Cria a linha tracejada uma única vez na memória
     const lineObj = useMemo(() => {
@@ -132,22 +139,72 @@ export function Personagem({ view, targetPosition, skinColor = '#ffcba4' }: Char
         }
     }
 
+    // Refs para evitar que o personagem ande infinitamente tentando atravessar a mesa
+    const cancelledTarget = useRef<THREE.Vector3 | null>(null)
+    const prevDistToTarget = useRef(9999)
+    const tempoTrancado = useRef(0)
+
     // Começa com a animação Idle (parado) quando carrega
     useEffect(() => {
         actions['Idle']?.play()
     }, [actions])
 
-    // Quando sai da view da cama, reseta tudo para poder repetir a sequência
+    // Quando sai da view da cama ou desk para o quarto, reseta animações de "móveis" e põe no chão
     useEffect(() => {
-        if (view !== 'bed') {
+        if (view === 'room') {
+            const estavaDeitado = ['deitado', 'deitando', 'subindo_cama'].includes(faseCama.current)
+            
             faseCama.current = 'livre'
             faseCamaTempo.current = 0
+
+            if (group.current) {
+                // Traz para o nível do chão instantaneamente
+                group.current.position.y = CHAO_Y
+                // Zera inclinações para garantir que está em pé
+                group.current.rotation.x = 0
+                group.current.rotation.z = 0
+                
+                // Se saiu da cama, coloca ao lado da cama para não ficar atravessado no colchão
+                if (estavaDeitado) {
+                    group.current.position.x = POSICAO_CAMA.x
+                    group.current.position.z = POSICAO_CAMA.z
+                }
+            }
         }
+    }, [view])
+
+    // Metodo para resolver colisoes fisicamente (slide em paredes dos móveis)
+    useEffect(() => {
+        const handler = (e: CustomEvent) => {
+            // Ignora física se não estiver andando livremente (ex: deitando, sentando, ou indo focado para o móvel)
+            if (view !== 'room' || faseCama.current !== 'livre') return
+            if (!group.current) return
+
+            const { correcao } = e.detail as { correcao: THREE.Vector3 }
+            // Desliza para fora do obstaculo instantaneamente!
+            group.current.position.add(correcao)
+        }
+        window.addEventListener('personagem-correcao' as any, handler as any)
+        return () => window.removeEventListener('personagem-correcao' as any, handler as any)
     }, [view])
 
     // ── LOOP PRINCIPAL (roda a cada frame) ──────────────────────────────
     useFrame((_state, delta) => {
         if (!group.current) return
+
+        // Expor posição para a física do Quarto
+        if (positionRef) {
+            positionRef.current.copy(group.current.position)
+        }
+
+        if (faseCama.current === 'livre') {
+            // Fixa a altura rigorosamente no chao e limpa as rotações problemáticas garantindo Quaternions puros
+            group.current.position.y = CHAO_Y
+            
+            // Impede de vazar as paredes invisiveis do quarto (-4.3 a +4.3)
+            group.current.position.x = THREE.MathUtils.clamp(group.current.position.x, -4.3, 4.3)
+            group.current.position.z = THREE.MathUtils.clamp(group.current.position.z, -4.3, 4.3)
+        }
 
         // ── FASE: DEITADO ─────────────────────────────────────────────────────
         // Euler(-PI/2, rotacaoY, 0, 'YXZ'):
@@ -197,7 +254,7 @@ export function Personagem({ view, targetPosition, skinColor = '#ffcba4' }: Char
             faseCamaTempo.current += delta
             playAnim('Jump')
 
-            // Pula para cima e vira de costas num movimento só
+            // Pula para cima e vira de frente para a mesa num movimento só
             const duracao = 0.4 
             const t = Math.min(faseCamaTempo.current / duracao, 1.0)
             
@@ -209,9 +266,13 @@ export function Personagem({ view, targetPosition, skinColor = '#ffcba4' }: Char
             
             group.current.position.set(POSICAO_ESCRIVANINHA.x, novoY, novoZ)
 
-            // Vira para ficar de costas para a mesa (Math.PI)
-            const quatMesa = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)
-            group.current.quaternion.slerp(quatMesa, 0.2)
+            // Vira para ficar de frente para a mesa
+            const centroMesa = new THREE.Vector3(-2.5, POSICAO_BANCO_SENTADO.y, -3)
+            const dummy = new THREE.Object3D()
+            dummy.position.copy(group.current.position)
+            dummy.lookAt(centroMesa)
+            
+            group.current.quaternion.slerp(dummy.quaternion, 0.2)
 
             if (t >= 1.0) {
                 faseCama.current = 'sentado_mesa'
@@ -252,30 +313,52 @@ export function Personagem({ view, targetPosition, skinColor = '#ffcba4' }: Char
         }
 
         // ── FASE: LIVRE (andando normalmente) ────────────────────────────────
-        if (targetPosition) {
-            const target = new THREE.Vector3(targetPosition.x, CHAO_Y, targetPosition.z)
-            const distance = group.current.position.distanceTo(target)
+        if (targetPosition && cancelledTarget.current !== targetPosition) {
+            // Usa 2D distance (ignorando Y) para não dar tilt na cabeça do personagem
+            const dx = targetPosition.x - group.current.position.x
+            const dz = targetPosition.z - group.current.position.z
+            const distance = Math.sqrt(dx * dx + dz * dz)
 
-            if (distance > 0.1) {
+            if (distance > 0.05) {
+                // Se a distância praticamente não diminuiu desde o último frame, significa que bateu na parede visível
+                if (Math.abs(prevDistToTarget.current - distance) < 0.001) {
+                    tempoTrancado.current += delta
+                    if (tempoTrancado.current > 0.2) {
+                        // Desiste de tentar chegar nesse alvo pra não ficar deslizando pra sempre
+                        cancelledTarget.current = targetPosition
+                        playAnim('Idle')
+                        if (lineRef.current) lineRef.current.visible = false
+                        return
+                    }
+                } else {
+                    tempoTrancado.current = 0
+                }
+                prevDistToTarget.current = distance
+
                 // ── ANDANDO ──
-                // Velocidade constante em unidades/segundo → não depende da distância
+                // Direção 2D pura
+                const direcao = new THREE.Vector3(dx, 0, dz).normalize()
                 const VELOCIDADE = 4.5
                 const passo = Math.min(VELOCIDADE * delta, distance)
-                const direcao = target.clone().sub(group.current.position).normalize()
+                
                 group.current.position.addScaledVector(direcao, passo)
 
                 playAnim('Walk')
 
+                // Rotação pura no plano XZ
                 const dummy = new THREE.Object3D()
                 dummy.position.copy(group.current.position)
-                dummy.lookAt(target)
+                
+                const alvoXZ = new THREE.Vector3(targetPosition.x, group.current.position.y, targetPosition.z)
+                dummy.lookAt(alvoXZ)
+                
                 group.current.quaternion.slerp(dummy.quaternion, 0.15)
 
                 if (lineRef.current) {
                     lineRef.current.visible = true
                     const points = [
                         new THREE.Vector3(group.current.position.x, -1.9, group.current.position.z),
-                        new THREE.Vector3(target.x, -1.9, target.z)
+                        new THREE.Vector3(targetPosition.x, -1.9, targetPosition.z)
                     ]
                     lineRef.current.geometry.setFromPoints(points)
                     lineRef.current.computeLineDistances()
@@ -284,6 +367,7 @@ export function Personagem({ view, targetPosition, skinColor = '#ffcba4' }: Char
                 // ── CHEGOU NO DESTINO ──
                 if (lineRef.current) lineRef.current.visible = false
 
+                const target = new THREE.Vector3(targetPosition.x, CHAO_Y, targetPosition.z)
                 if (view === 'desk' && target.distanceTo(POSICAO_ESCRIVANINHA) < 0.1) {
                     faseCama.current = 'sentando_mesa'
                     faseCamaTempo.current = 0
@@ -301,7 +385,8 @@ export function Personagem({ view, targetPosition, skinColor = '#ffcba4' }: Char
             if (view === 'desk') {
                 faseCama.current = 'sentado_mesa'
                 group.current.position.copy(POSICAO_BANCO_SENTADO)
-                group.current.rotation.y = Math.PI
+                const centroMesa = new THREE.Vector3(-2.5, POSICAO_BANCO_SENTADO.y, -3)
+                group.current.lookAt(centroMesa)
             } else if (view === 'bed') {
                 personalidadeSono.current = sortearPerfilSono()
                 faseCama.current = 'subindo_cama'
@@ -333,9 +418,32 @@ export function Personagem({ view, targetPosition, skinColor = '#ffcba4' }: Char
             {/* Linha tracejada mostrando o caminho */}
             <primitive object={lineObj} ref={lineRef} visible={false} />
 
-            {/* Personagem — começa na frente da escrivaninha */}
-            <group ref={group} position={[POSICAO_ESCRIVANINHA.x, POSICAO_ESCRIVANINHA.y, POSICAO_ESCRIVANINHA.z]} rotation={[0, Math.PI, 0]} scale={1.15}>
-                <primitive object={scene} />
+            {/* Personagem — começa na frente da escrivaninha (a rotação inicial da raiz não importa pois as lógicas sobrescrevem com quaternions) */}
+            <group ref={group} position={[POSICAO_ESCRIVANINHA.x, POSICAO_ESCRIVANINHA.y, POSICAO_ESCRIVANINHA.z]} scale={1.15}>
+                
+                {/* O modelo interno já olha corretamente pra frente no espaço -Z do ThreeJS */}
+                <group>
+                    <primitive object={scene} />
+                </group>
+                
+                {/* Se estiver segurando uma carta, renderiza uma miniatura na "mão" 
+                    Posição aproximada em relação ao centro do personagem. */}
+                {cartaSegurada && (
+                    <group position={[-0.45, 0.85, 0.35]} rotation={[-Math.PI / 6, Math.PI / 8, Math.PI / 12]}>
+                        <Float speed={3} rotationIntensity={0.3} floatIntensity={0.8}>
+                            <group scale={3.0}>
+                                <RoundedBox args={[0.2, 0.01, 0.15]} radius={0.005} smoothness={2} castShadow>
+                                    <meshStandardMaterial color="#fffcf8" roughness={0.8} emissive="#ffffff" emissiveIntensity={0.2} />
+                                </RoundedBox>
+                                {/* Linhas falsas miniatura para parecer uma carta recém-desenhada */}
+                                <mesh position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                                    <planeGeometry args={[0.18, 0.13]} />
+                                    <meshBasicMaterial color="#8a8782" wireframe opacity={0.6} transparent />
+                                </mesh>
+                            </group>
+                        </Float>
+                    </group>
+                )}
             </group>
         </group>
     )

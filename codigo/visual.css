@@ -21,14 +21,50 @@ body {
 }
 
 .tela-quarto {
-    flex: 1;
     position: relative;
+    overflow: hidden;
+    height: 100vh;
+    box-sizing: border-box;
+    transition: width 0.3s ease-in-out, height 0.3s ease-in-out, flex 0.3s ease-in-out;
+}
+
+.tela-interacao-wrapper {
+    transition: all 0.3s ease-in-out;
+    overflow: hidden;
 }
 
 .tela-interacao {
-    flex: 1;
     position: relative;
     border-left: 2px solid rgba(255, 255, 255, 0.04);
+    background-color: transparent;
+    overflow: hidden;
+    height: 100vh;
+    width: 50vw;
+    box-sizing: border-box;
+}
+
+/* Estado: Desk (Split Screen Vertical ou Horizontal) */
+.tela-split.view-desk .tela-quarto {
+    width: 50vw;
+    flex: 0 0 50vw;
+}
+
+.tela-split.view-desk .tela-interacao-wrapper {
+    width: 50vw;
+    flex: 0 0 50vw;
+    opacity: 1;
+}
+
+/* Estado: Outras Views (Quarto Full Screen) */
+.tela-split.view-other .tela-quarto {
+    width: 100vw;
+    flex: 1;
+}
+
+.tela-split.view-other .tela-interacao-wrapper {
+    width: 0vw;
+    flex: 0 0 0vw;
+    opacity: 0;
 }
 
 /* Mobile: empilha vertical */
@@ -36,9 +72,41 @@ body {
     .tela-split {
         flex-direction: column;
     }
+    
+    .tela-split.view-desk .tela-quarto {
+        width: 100vw;
+        height: 20vh;
+        flex: 0 0 20vh;
+    }
+
+    .tela-split.view-other .tela-quarto {
+        width: 100vw;
+        height: 100vh;
+        flex: 1;
+    }
+
+    .tela-split.view-desk .tela-interacao-wrapper {
+        width: 100vw;
+        height: 80vh;
+        flex: 0 0 80vh;
+    }
+
+    .tela-split.view-other .tela-interacao-wrapper {
+        width: 100vw;
+        height: 0vh;
+        flex: 0 0 0vh;
+    }
+
     .tela-interacao {
+        width: 100vw;
+        height: 80vh;
         border-left: none;
         border-top: 2px solid rgba(255, 255, 255, 0.04);
+        touch-action: none; /* Prevent browser scroll/gestures on the desk canvas */
+    }
+
+    .tela-interacao canvas {
+        touch-action: none;
     }
 }
 
@@ -54,4 +122,261 @@ body {
     height: 1px;
     opacity: 0;
     pointer-events: none;
+}
+
+/* -- HTML 3D OVERLAYS -- */
+.html-input-wrapper { pointer-events: auto !important; z-index: 9999 !important; }
+.html-input-wrapper textarea { pointer-events: auto !important; }
+
+
+.html-input-wrapper > div { pointer-events: auto !important; }
+
+/* OVERLAY SVG 3D PARA REDIMENSIONAR DE LARGURA TOTAL PREVENDO BUG DE BRANCO */
+.html-svg-viewer {
+    pointer-events: none;
+}
+.html-svg-viewer svg {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+
+/* ── TOP MENU & TO-DO LIST MODAL ───────────────────────── */
+.top-menu-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+.notebook-icon-wrapper {
+    position: relative;
+    cursor: pointer;
+    background: transparent;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    transition: transform 0.2s;
+    animation: float-notebook 4s ease-in-out infinite;
+    user-select: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 0;
+}
+.notebook-icon-wrapper:hover {
+    transform: scale(1.1);
+    background: transparent;
+}
+
+.notebook-icon-svg {
+    width: 56px;
+    height: 56px;
+    display: block;
+    filter: none; /* Shadow is inside SVG */
+}
+
+.notebook-icon-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: #e74c3c;
+    color: white;
+    font-size: 13px;
+    font-weight: bold;
+    font-family: sans-serif;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(231, 76, 60, 0.5);
+    border: 2px solid white;
+    animation: bounce-badge 1s infinite alternate;
+}
+
+@keyframes float-notebook {
+    0% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-4px) rotate(2deg); }
+    100% { transform: translateY(0px) rotate(0deg); }
+}
+
+@keyframes bounce-badge {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.2); }
+}
+
+.todo-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(10, 10, 15, 0.6);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fade-in 0.2s ease-out;
+}
+
+/* Modal Prancheta */
+.todo-modal-clipboard {
+    background: #1fc786;
+    border-radius: 12px;
+    padding: 16px 16px 24px 16px;
+    width: 85%;
+    max-width: 360px;
+    position: relative;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    animation: slide-up 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.todo-clip-top {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 36px;
+    background: #3b428c;
+    border-radius: 6px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    z-index: 2;
+}
+.todo-clip-top::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 20px;
+    background: #3b428c;
+    border-radius: 4px;
+}
+
+.todo-modal-paper {
+    background: white;
+    border-radius: 4px;
+    padding: 0;
+    margin-top: 16px; 
+    position: relative;
+    min-height: 250px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    /* For the fold */
+    border-bottom-right-radius: 36px;
+    overflow: hidden;
+    color: #333;
+}
+
+.todo-modal-paper-fold {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 36px 0 0 36px;
+    border-color: transparent transparent transparent #e2e8f0;
+    box-shadow: -2px -2px 4px rgba(0,0,0,0.05);
+    z-index: 3;
+}
+
+.todo-paper-header {
+    text-align: center;
+    padding: 24px 20px 10px;
+}
+.todo-paper-header h2 {
+    margin: 0;
+    color: #3b428c;
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-family: 'Quicksand', sans-serif;
+}
+
+.todo-close-btn { 
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none; 
+    border: none; 
+    color: #3b428c; 
+    font-size: 28px; 
+    font-weight: bold;
+    cursor: pointer; 
+    opacity: 0.5; 
+    transition: 0.2s; 
+    padding: 0;
+    line-height: 1;
+    z-index: 10;
+}
+.todo-close-btn:hover { opacity: 1; transform: scale(1.1); }
+
+.todo-list-content {
+    display: flex;
+    flex-direction: column;
+    padding: 0 20px 30px 20px;
+}
+
+.todo-list-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px 0;
+    border-bottom: 2px solid #f1f5f9;
+}
+.todo-list-item:last-child {
+    border-bottom: none;
+}
+
+.todo-item-check {
+    width: 22px;
+    height: 22px;
+    border: 2px solid #1fc786;
+    border-radius: 50%;
+    margin-right: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.todo-list-item.futuro .todo-item-check {
+    border-color: #cbd5e1;
+}
+
+.todo-item-check svg {
+    width: 14px;
+    height: 14px;
+    stroke: #3b428c;
+    stroke-width: 3px;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.todo-item-text p { margin: 0; font-size: 14px; line-height: 1.4; color: #64748b; font-family: 'Quicksand', sans-serif; font-weight: 500;}
+.todo-item-text strong { color: #3b428c; font-weight: 700; display: block; margin-bottom: 4px; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-up { from { opacity: 0; transform: translateY(30px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* ── NOTEBOOK AI FACE (Mirix) ───────────────────────── */
+.notebook-face-container {
+    width: 300px; /* Base resolution for the SVG */
+    height: 180px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none; /* Let clicks pass through to the screen mesh */
+}
+
+.notebook-svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.4));
 }

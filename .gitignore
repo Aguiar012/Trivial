@@ -20,6 +20,22 @@ dist-ssr
 # Worktrees
 .worktrees/
 
+# Arquivos fonte de modelos 3D (pesados, não necessários para deploy)
+recursos/**/Blends/
+recursos/**/FBX/
+recursos/**/OBJ/
+recursos/Modelo de Objetos de Casa/Preview.jpg
+recursos/Referencias/
+
+# Modelos glTF não usados (manter só Suit_Male.gltf)
+recursos/Modelos da Internet/glTF/*
+!recursos/Modelos da Internet/glTF/Suit_Male.gltf
+
+# Scripts temporários
+fix_tela_debug.js
+patch_tela.js
+log.txt
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -62,19 +62,14 @@ const CAMERA = {
         velocidade: 0.05,
     },
     desk: {
-        // Câmera ATRÁS DA CADEIRA: vem do lado +Z, olha para a parede do fundo
-        // ┌────────────────────────────────────────────────────────┐
-        // │  Para mudar o ângulo, pense em órbita em torno de (-2.5, 0, -3): │
-        // │   "atrás"    → posZ: +8..+12,  focoZ: -3              │
-        // │   "lateral"  → posX: +10..16,  focoX: -2.5            │
-        // │   "de cima"  → posY: +8..+12,  focoY: -1              │
-        // └────────────────────────────────────────────────────────┘
-        posX: -2.5,  // alinhado com a mesa (lateral)
-        posY: 5,     // altura moderada
-        posZ: 10,    // bem atrás do personagem
-        focoX: -2.5, // aponta direto para a mesa
-        focoY: -1.0, // um pouco abaixo (altura da mesa/personagem)
-        focoZ: -3.0, // o Z da mesa (parede do fundo)
+        // Câmera ATRÁS DA CADEIRA COM ÂNGULO DIAGONAL
+        // Deslocada para a direita para não ser bloqueada pela cabeça do personagem
+        posX: 0.5,   // câmera deslocada para a direita
+        posY: 4.5,   // altura moderada
+        posZ: 9.0,   // atrás do personagem
+        focoX: -2.5, // centro da mesa
+        focoY: -0.6, // foco na tela do notebook
+        focoZ: -3.0, // tela do notebook
         zoom: 130,
         velocidade: 0.1,
     },
@@ -144,8 +139,19 @@ export function Camera({ view }: CameraControllerProps) {
         const targetPos = new THREE.Vector3(cfg.posX, cfg.posY, cfg.posZ)
         const targetLook = new THREE.Vector3(cfg.focoX, cfg.focoY, cfg.focoZ)
 
+        // Adjust zoom for mobile/portrait relative to a reference aspect ratio
+        let targetZoom = cfg.zoom
+        const aspect = state.size.width / state.size.height
+        
+        // Se a tela for mais "fechada" (mobile/portrait ou quadrado ajustado), 
+        // reduzimos o zoom para garantir que as laterais do quarto continuem visíveis.
+        const referenceAspect = 1.2
+        if (aspect < referenceAspect) {
+            targetZoom = cfg.zoom * (aspect / referenceAspect)
+        }
+
         state.camera.position.lerp(targetPos, cfg.velocidade)
-        state.camera.zoom = THREE.MathUtils.lerp(state.camera.zoom, cfg.zoom, cfg.velocidade)
+        state.camera.zoom = THREE.MathUtils.lerp(state.camera.zoom, targetZoom, cfg.velocidade)
         state.camera.lookAt(targetLook)
         state.camera.updateProjectionMatrix()
     })

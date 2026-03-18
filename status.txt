@@ -1,0 +1,326 @@
+﻿On branch main
+Your branch is ahead of 'origin/main' by 19 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	deleted:    check_materials.cjs
+	modified:   codigo/Tela.tsx
+	modified:   codigo/estudo/CenaInteracao.tsx
+	modified:   codigo/pecas/Camera.tsx
+	modified:   codigo/pecas/Personagem.tsx
+	modified:   codigo/pecas/Quarto.tsx
+	modified:   codigo/visual.css
+	modified:   index.html
+	modified:   package-lock.json
+	modified:   package.json
+	deleted:    public/Modelos da Internet/Blends/BaseCharacter.blend
+	deleted:    public/Modelos da Internet/Blends/BlueSoldier_Female.blend
+	deleted:    public/Modelos da Internet/Blends/BlueSoldier_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Casual2_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Casual2_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Casual3_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Casual3_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Casual_Bald.blend
+	deleted:    public/Modelos da Internet/Blends/Casual_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Casual_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Chef_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Chef_Hat.blend
+	deleted:    public/Modelos da Internet/Blends/Chef_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Cow.blend
+	deleted:    public/Modelos da Internet/Blends/Cowboy_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Cowboy_Hair.blend
+	deleted:    public/Modelos da Internet/Blends/Cowboy_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Doctor_Female_Old.blend
+	deleted:    public/Modelos da Internet/Blends/Doctor_Female_Young.blend
+	deleted:    public/Modelos da Internet/Blends/Doctor_Male_Old.blend
+	deleted:    public/Modelos da Internet/Blends/Doctor_Male_Young.blend
+	deleted:    public/Modelos da Internet/Blends/Elf.blend
+	deleted:    public/Modelos da Internet/Blends/Goblin_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Goblin_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Kimono_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Kimono_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Knight_Golden_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Knight_Golden_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Knight_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Ninja_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Ninja_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Ninja_Male_Hair.blend
+	deleted:    public/Modelos da Internet/Blends/Ninja_Sand.blend
+	deleted:    public/Modelos da Internet/Blends/Ninja_Sand_Female.blend
+	deleted:    public/Modelos da Internet/Blends/OldClassy_Female.blend
+	deleted:    public/Modelos da Internet/Blends/OldClassy_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Pirate_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Pirate_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Pug.blend
+	deleted:    public/Modelos da Internet/Blends/Soldier_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Soldier_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Suit_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Suit_Male.blend
+	deleted:    public/Modelos da Internet/Blends/VikingHelmet.blend
+	deleted:    public/Modelos da Internet/Blends/Viking_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Viking_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Witch.blend
+	deleted:    public/Modelos da Internet/Blends/Wizard.blend
+	deleted:    public/Modelos da Internet/Blends/Worker_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Worker_Male.blend
+	deleted:    public/Modelos da Internet/Blends/Zombie_Female.blend
+	deleted:    public/Modelos da Internet/Blends/Zombie_Male.blend
+	deleted:    public/Modelos da Internet/FBX/BaseCharacter.fbx
+	deleted:    public/Modelos da Internet/FBX/BlueSoldier_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/BlueSoldier_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Casual2_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Casual2_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Casual3_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Casual3_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Casual_Bald.fbx
+	deleted:    public/Modelos da Internet/FBX/Casual_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Casual_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Chef_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Chef_Hat.fbx
+	deleted:    public/Modelos da Internet/FBX/Chef_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Cow.fbx
+	deleted:    public/Modelos da Internet/FBX/Cowboy_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Cowboy_Hair.fbx
+	deleted:    public/Modelos da Internet/FBX/Cowboy_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Doctor_Female_Old.fbx
+	deleted:    public/Modelos da Internet/FBX/Doctor_Female_Young.fbx
+	deleted:    public/Modelos da Internet/FBX/Doctor_Male_Old.fbx
+	deleted:    public/Modelos da Internet/FBX/Doctor_Male_Young.fbx
+	deleted:    public/Modelos da Internet/FBX/Elf.fbx
+	deleted:    public/Modelos da Internet/FBX/Goblin_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Goblin_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Kimono_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Kimono_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Knight_Golden_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Knight_Golden_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Knight_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Ninja_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Ninja_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Ninja_Male_Hair.fbx
+	deleted:    public/Modelos da Internet/FBX/Ninja_Sand.fbx
+	deleted:    public/Modelos da Internet/FBX/Ninja_Sand_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/OldClassy_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/OldClassy_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Pirate_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Pirate_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Pug.fbx
+	deleted:    public/Modelos da Internet/FBX/Soldier_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Soldier_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Suit_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Suit_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/VikingHelmet.fbx
+	deleted:    public/Modelos da Internet/FBX/Viking_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Viking_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Witch.fbx
+	deleted:    public/Modelos da Internet/FBX/Wizard.fbx
+	deleted:    public/Modelos da Internet/FBX/Worker_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Worker_Male.fbx
+	deleted:    public/Modelos da Internet/FBX/Zombie_Female.fbx
+	deleted:    public/Modelos da Internet/FBX/Zombie_Male.fbx
+	deleted:    public/Modelos da Internet/License.txt
+	deleted:    public/Modelos da Internet/OBJ/BaseCharacter.mtl
+	deleted:    public/Modelos da Internet/OBJ/BaseCharacter.obj
+	deleted:    public/Modelos da Internet/OBJ/BlueSoldier_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/BlueSoldier_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/BlueSoldier_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/BlueSoldier_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Casual2_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Casual2_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Casual2_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Casual2_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Casual3_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Casual3_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Casual3_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Casual3_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Casual_Bald.mtl
+	deleted:    public/Modelos da Internet/OBJ/Casual_Bald.obj
+	deleted:    public/Modelos da Internet/OBJ/Casual_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Casual_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Casual_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Casual_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Chef_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Chef_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Chef_Hat.mtl
+	deleted:    public/Modelos da Internet/OBJ/Chef_Hat.obj
+	deleted:    public/Modelos da Internet/OBJ/Chef_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Chef_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Cow.mtl
+	deleted:    public/Modelos da Internet/OBJ/Cow.obj
+	deleted:    public/Modelos da Internet/OBJ/Cowboy_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Cowboy_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Cowboy_Hair.mtl
+	deleted:    public/Modelos da Internet/OBJ/Cowboy_Hair.obj
+	deleted:    public/Modelos da Internet/OBJ/Cowboy_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Cowboy_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Doctor_Female_Old.mtl
+	deleted:    public/Modelos da Internet/OBJ/Doctor_Female_Old.obj
+	deleted:    public/Modelos da Internet/OBJ/Doctor_Female_Young.mtl
+	deleted:    public/Modelos da Internet/OBJ/Doctor_Female_Young.obj
+	deleted:    public/Modelos da Internet/OBJ/Doctor_Male_Old.mtl
+	deleted:    public/Modelos da Internet/OBJ/Doctor_Male_Old.obj
+	deleted:    public/Modelos da Internet/OBJ/Doctor_Male_Young.mtl
+	deleted:    public/Modelos da Internet/OBJ/Doctor_Male_Young.obj
+	deleted:    public/Modelos da Internet/OBJ/Elf.mtl
+	deleted:    public/Modelos da Internet/OBJ/Elf.obj
+	deleted:    public/Modelos da Internet/OBJ/Goblin_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Goblin_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Goblin_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Goblin_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Kimono_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Kimono_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Kimono_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Kimono_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Knight_Golden_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Knight_Golden_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Knight_Golden_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Knight_Golden_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Knight_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Knight_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Ninja_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Ninja_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Ninja_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Ninja_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Ninja_Male_Hair.mtl
+	deleted:    public/Modelos da Internet/OBJ/Ninja_Male_Hair.obj
+	deleted:    public/Modelos da Internet/OBJ/Ninja_Sand.mtl
+	deleted:    public/Modelos da Internet/OBJ/Ninja_Sand.obj
+	deleted:    public/Modelos da Internet/OBJ/Ninja_Sand_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Ninja_Sand_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/OBJ.mtl
+	deleted:    public/Modelos da Internet/OBJ/OBJ.obj
+	deleted:    public/Modelos da Internet/OBJ/OldClassy_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/OldClassy_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/OldClassy_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/OldClassy_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Pirate_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Pirate_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Pirate_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Pirate_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Pug.mtl
+	deleted:    public/Modelos da Internet/OBJ/Pug.obj
+	deleted:    public/Modelos da Internet/OBJ/Soldier_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Soldier_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Soldier_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Soldier_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Suit_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Suit_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Suit_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Suit_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/VikingHelmet.mtl
+	deleted:    public/Modelos da Internet/OBJ/VikingHelmet.obj
+	deleted:    public/Modelos da Internet/OBJ/Viking_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Viking_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Viking_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Viking_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Witch.mtl
+	deleted:    public/Modelos da Internet/OBJ/Witch.obj
+	deleted:    public/Modelos da Internet/OBJ/Wizard.mtl
+	deleted:    public/Modelos da Internet/OBJ/Wizard.obj
+	deleted:    public/Modelos da Internet/OBJ/Worker_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Worker_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Worker_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Worker_Male.obj
+	deleted:    public/Modelos da Internet/OBJ/Zombie_Female.mtl
+	deleted:    public/Modelos da Internet/OBJ/Zombie_Female.obj
+	deleted:    public/Modelos da Internet/OBJ/Zombie_Male.mtl
+	deleted:    public/Modelos da Internet/OBJ/Zombie_Male.obj
+	deleted:    public/Modelos da Internet/Preview.png
+	deleted:    public/Modelos da Internet/glTF/BaseCharacter.gltf
+	deleted:    public/Modelos da Internet/glTF/BlueSoldier_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/BlueSoldier_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Casual2_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Casual2_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Casual3_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Casual3_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Casual_Bald.gltf
+	deleted:    public/Modelos da Internet/glTF/Casual_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Casual_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Chef_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Chef_Hat.gltf
+	deleted:    public/Modelos da Internet/glTF/Chef_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Cow.gltf
+	deleted:    public/Modelos da Internet/glTF/Cowboy_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Cowboy_Hair.gltf
+	deleted:    public/Modelos da Internet/glTF/Cowboy_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Doctor_Female_Old.gltf
+	deleted:    public/Modelos da Internet/glTF/Doctor_Female_Young.gltf
+	deleted:    public/Modelos da Internet/glTF/Doctor_Male_Old.gltf
+	deleted:    public/Modelos da Internet/glTF/Doctor_Male_Young.gltf
+	deleted:    public/Modelos da Internet/glTF/Elf.gltf
+	deleted:    public/Modelos da Internet/glTF/Goblin_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Goblin_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Kimono_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Kimono_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Knight_Golden_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Knight_Golden_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Knight_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Ninja_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Ninja_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Ninja_Male_Hair.gltf
+	deleted:    public/Modelos da Internet/glTF/Ninja_Sand.gltf
+	deleted:    public/Modelos da Internet/glTF/Ninja_Sand_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/OldClassy_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/OldClassy_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Pirate_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Pirate_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Pug.gltf
+	deleted:    public/Modelos da Internet/glTF/Soldier_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Soldier_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Suit_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Suit_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/VikingHelmet.gltf
+	deleted:    public/Modelos da Internet/glTF/Viking_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Viking_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Witch.gltf
+	deleted:    public/Modelos da Internet/glTF/Wizard.gltf
+	deleted:    public/Modelos da Internet/glTF/Worker_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Worker_Male.gltf
+	deleted:    public/Modelos da Internet/glTF/Zombie_Female.gltf
+	deleted:    public/Modelos da Internet/glTF/Zombie_Male.gltf
+	deleted:    public/vite.svg
+	deleted:    read_animations.cjs
+	deleted:    src/App.css
+	deleted:    src/App.tsx
+	deleted:    src/assets/react.svg
+	deleted:    src/components/CameraController.tsx
+	deleted:    src/components/Character.tsx
+	deleted:    src/components/CozyRoom.tsx
+	deleted:    src/components/DustParticles.tsx
+	deleted:    src/components/Lighting.tsx
+	deleted:    src/index.css
+	deleted:    src/main.tsx
+	deleted:    tsconfig.app.json
+	modified:   tsconfig.json
+	deleted:    tsconfig.node.json
+	modified:   vite.config.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.claude/
+	ROADMAP.md
+	codigo/App.css
+	codigo/estudo/DrawingOverlay.tsx
+	codigo/estudo/fsrs.ts
+	codigo/estudo/store.ts
+	codigo/estudo/supabase.ts
+	codigo/estudo/tipos.ts
+	codigo/liga.tsx
+	codigo/pecas/Luz.tsx
+	codigo/pecas/ObjectNotification.tsx
+	codigo/pecas/TopMenu.tsx
+	docs/
+	fix_tela_debug.js
+	patch_tela.js
+	playwright.config.ts
+	recursos/
+	run_test_visible.js
+	scripts/
+	status.txt
+	take_screenshot.js
+	test-results/
+	test_debug_desk.png
+	tests/
+
+no changes added to commit (use "git add" and/or "git commit -a")
